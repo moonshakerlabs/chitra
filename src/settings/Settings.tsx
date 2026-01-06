@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { 
   Settings as SettingsIcon, 
@@ -14,17 +14,20 @@ import {
   ChevronRight,
   Heart,
   Info,
-  CreditCard
+  CreditCard,
+  Check,
+  FileJson,
+  FileSpreadsheet
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Switch } from '@/components/ui/switch';
 import { 
   getPreferences, 
   savePreferences, 
   clearAllData,
   resetPreferences 
 } from '@/core/storage';
+import { exportToJSON, exportToCSV, importFromJSON, importFromCSV } from '@/core/export';
 import type { UserPreferences, ThemeMode, ColorTheme, CountryCode, LanguageCode } from '@/core/types';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -37,6 +40,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 const countries: Array<{ code: CountryCode; name: string; flag: string }> = [
   { code: 'USA', name: 'United States', flag: '🇺🇸' },
@@ -56,12 +65,12 @@ const languages: Array<{ code: LanguageCode; name: string }> = [
   { code: 'de', name: 'German' },
 ];
 
-const colorThemes: Array<{ id: ColorTheme; name: string; color: string }> = [
-  { id: 'pink', name: 'Pink', color: 'bg-pink-500' },
-  { id: 'purple', name: 'Purple', color: 'bg-purple-500' },
-  { id: 'blue', name: 'Blue', color: 'bg-blue-500' },
-  { id: 'green', name: 'Green', color: 'bg-green-500' },
-  { id: 'orange', name: 'Orange', color: 'bg-orange-500' },
+const colorThemes: Array<{ id: ColorTheme; name: string; hsl: string }> = [
+  { id: 'pink', name: 'Pink', hsl: '330 81% 60%' },
+  { id: 'purple', name: 'Purple', hsl: '270 65% 55%' },
+  { id: 'blue', name: 'Blue', hsl: '210 80% 55%' },
+  { id: 'green', name: 'Green', hsl: '145 60% 45%' },
+  { id: 'orange', name: 'Orange', hsl: '25 90% 55%' },
 ];
 
 const Settings = () => {
@@ -69,6 +78,12 @@ const Settings = () => {
   const [loading, setLoading] = useState(true);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showResetDialog, setShowResetDialog] = useState(false);
+  const [showCountryDialog, setShowCountryDialog] = useState(false);
+  const [showLanguageDialog, setShowLanguageDialog] = useState(false);
+  const [showExportDialog, setShowExportDialog] = useState(false);
+  const [showImportDialog, setShowImportDialog] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [importType, setImportType] = useState<'json' | 'csv'>('json');
   const { toast } = useToast();
 
   useEffect(() => {
@@ -89,13 +104,18 @@ const Settings = () => {
     const updated = await savePreferences({ [key]: value });
     setPreferences(updated);
     
-    // Handle theme changes
+    // Handle theme mode changes
     if (key === 'theme') {
-      applyTheme(value as ThemeMode);
+      applyThemeMode(value as ThemeMode);
+    }
+    
+    // Handle color theme changes
+    if (key === 'colorTheme') {
+      applyColorTheme(value as ColorTheme);
     }
   };
 
-  const applyTheme = (theme: ThemeMode) => {
+  const applyThemeMode = (theme: ThemeMode) => {
     const root = document.documentElement;
     if (theme === 'dark') {
       root.classList.add('dark');
@@ -111,18 +131,120 @@ const Settings = () => {
     }
   };
 
-  const handleExportData = () => {
+  const applyColorTheme = (colorTheme: ColorTheme) => {
+    const root = document.documentElement;
+    const theme = colorThemes.find(t => t.id === colorTheme);
+    if (theme) {
+      // Update CSS variables for the color theme
+      root.style.setProperty('--primary', theme.hsl);
+      root.style.setProperty('--ring', theme.hsl);
+      root.style.setProperty('--chitra-pink', theme.hsl);
+      root.style.setProperty('--nav-active', theme.hsl);
+      root.style.setProperty('--chart-1', theme.hsl);
+      
+      // Also update accent to be slightly different
+      const [h, s, l] = theme.hsl.split(' ').map(v => parseFloat(v));
+      root.style.setProperty('--accent', `${h + 5} ${Math.min(parseInt(s.toString()), 80)}% ${Math.max(parseInt(l.toString()) - 5, 40)}%`);
+    }
+    
     toast({
-      title: "Export Coming Soon",
-      description: "Data export feature will be available in the next update.",
+      title: "Theme Updated",
+      description: `Color theme changed to ${colorTheme}`,
     });
   };
 
-  const handleImportData = () => {
-    toast({
-      title: "Import Coming Soon",
-      description: "Data import feature will be available in the next update.",
-    });
+  const handleExportJSON = async () => {
+    try {
+      await exportToJSON();
+      toast({
+        title: "Export Successful",
+        description: "Your data has been exported to JSON.",
+      });
+      setShowExportDialog(false);
+    } catch (error) {
+      toast({
+        title: "Export Failed",
+        description: "Failed to export data. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleExportCSV = async () => {
+    try {
+      await exportToCSV();
+      toast({
+        title: "Export Successful",
+        description: "Your data has been exported to CSV files.",
+      });
+      setShowExportDialog(false);
+    } catch (error) {
+      toast({
+        title: "Export Failed",
+        description: "Failed to export data. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleImportClick = (type: 'json' | 'csv') => {
+    setImportType(type);
+    fileInputRef.current?.click();
+  };
+
+  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    try {
+      if (importType === 'json') {
+        const result = await importFromJSON(file);
+        if (result.success) {
+          toast({
+            title: "Import Successful",
+            description: result.counts 
+              ? `Imported ${result.counts.cycles} cycles, ${result.counts.weights} weights, ${result.counts.checkIns} check-ins.`
+              : result.message,
+          });
+          setShowImportDialog(false);
+        } else {
+          toast({
+            title: "Import Failed",
+            description: result.message,
+            variant: "destructive",
+          });
+        }
+      } else {
+        // For CSV, we need to determine the type based on filename
+        let dataType: 'cycles' | 'weights' | 'checkIns' = 'cycles';
+        if (file.name.toLowerCase().includes('weight')) {
+          dataType = 'weights';
+        } else if (file.name.toLowerCase().includes('checkin')) {
+          dataType = 'checkIns';
+        }
+        
+        const result = await importFromCSV(file, dataType);
+        toast({
+          title: result.success ? "Import Successful" : "Import Failed",
+          description: result.message,
+          variant: result.success ? "default" : "destructive",
+        });
+        if (result.success) {
+          setShowImportDialog(false);
+        }
+      }
+    } catch (error) {
+      toast({
+        title: "Import Failed",
+        description: "Failed to import data. Please check the file format.",
+        variant: "destructive",
+      });
+    }
+    
+    // Reset file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
 
   const handleDeleteAllData = async () => {
@@ -160,6 +282,15 @@ const Settings = () => {
 
   return (
     <div className="px-4 py-6 space-y-6 pb-24">
+      {/* Hidden file input */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept={importType === 'json' ? '.json' : '.csv'}
+        onChange={handleFileSelect}
+        className="hidden"
+      />
+
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-foreground">Settings</h1>
@@ -174,7 +305,10 @@ const Settings = () => {
         <h2 className="text-sm font-medium text-muted-foreground mb-3 uppercase tracking-wide">General</h2>
         <Card className="divide-y divide-border">
           {/* Country */}
-          <div className="flex items-center justify-between p-4">
+          <button 
+            onClick={() => setShowCountryDialog(true)}
+            className="flex items-center justify-between p-4 w-full text-left hover:bg-secondary/50 transition-colors"
+          >
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-secondary flex items-center justify-center">
                 <Globe className="w-5 h-5 text-primary" />
@@ -185,10 +319,13 @@ const Settings = () => {
               </div>
             </div>
             <ChevronRight className="w-5 h-5 text-muted-foreground" />
-          </div>
+          </button>
 
           {/* Language */}
-          <div className="flex items-center justify-between p-4">
+          <button 
+            onClick={() => setShowLanguageDialog(true)}
+            className="flex items-center justify-between p-4 w-full text-left hover:bg-secondary/50 transition-colors"
+          >
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-secondary flex items-center justify-center">
                 <Languages className="w-5 h-5 text-primary" />
@@ -199,7 +336,7 @@ const Settings = () => {
               </div>
             </div>
             <ChevronRight className="w-5 h-5 text-muted-foreground" />
-          </div>
+          </button>
         </Card>
       </motion.div>
 
@@ -259,13 +396,18 @@ const Settings = () => {
                 <button
                   key={theme.id}
                   onClick={() => updatePreference('colorTheme', theme.id)}
-                  className={`w-10 h-10 rounded-full ${theme.color} transition-transform ${
+                  className={`w-10 h-10 rounded-full transition-transform relative ${
                     preferences.colorTheme === theme.id
                       ? 'ring-2 ring-offset-2 ring-foreground scale-110'
                       : 'hover:scale-105'
                   }`}
+                  style={{ backgroundColor: `hsl(${theme.hsl})` }}
                   title={theme.name}
-                />
+                >
+                  {preferences.colorTheme === theme.id && (
+                    <Check className="w-5 h-5 text-white absolute inset-0 m-auto" />
+                  )}
+                </button>
               ))}
             </div>
           </div>
@@ -281,7 +423,7 @@ const Settings = () => {
         <h2 className="text-sm font-medium text-muted-foreground mb-3 uppercase tracking-wide">Data</h2>
         <Card className="divide-y divide-border">
           <button 
-            onClick={handleExportData}
+            onClick={() => setShowExportDialog(true)}
             className="flex items-center justify-between p-4 w-full text-left hover:bg-secondary/50 transition-colors"
           >
             <div className="flex items-center gap-3">
@@ -290,14 +432,14 @@ const Settings = () => {
               </div>
               <div>
                 <p className="font-medium text-foreground">Export Data</p>
-                <p className="text-sm text-muted-foreground">Save your data as CSV, JSON, or Excel</p>
+                <p className="text-sm text-muted-foreground">Save your data as CSV or JSON</p>
               </div>
             </div>
             <ChevronRight className="w-5 h-5 text-muted-foreground" />
           </button>
 
           <button 
-            onClick={handleImportData}
+            onClick={() => setShowImportDialog(true)}
             className="flex items-center justify-between p-4 w-full text-left hover:bg-secondary/50 transition-colors"
           >
             <div className="flex items-center gap-3">
@@ -399,6 +541,137 @@ const Settings = () => {
           </p>
         </Card>
       </motion.div>
+
+      {/* Country Selection Dialog */}
+      <Dialog open={showCountryDialog} onOpenChange={setShowCountryDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Select Country</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2 max-h-80 overflow-y-auto">
+            {countries.map((country) => (
+              <button
+                key={country.code}
+                onClick={() => {
+                  updatePreference('country', country.code);
+                  setShowCountryDialog(false);
+                  toast({
+                    title: "Country Updated",
+                    description: `Country changed to ${country.name}`,
+                  });
+                }}
+                className={`w-full flex items-center gap-3 p-3 rounded-xl transition-colors ${
+                  preferences.country === country.code
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-secondary hover:bg-secondary/80'
+                }`}
+              >
+                <span className="text-2xl">{country.flag}</span>
+                <span className="font-medium">{country.name}</span>
+                {preferences.country === country.code && (
+                  <Check className="w-5 h-5 ml-auto" />
+                )}
+              </button>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Language Selection Dialog */}
+      <Dialog open={showLanguageDialog} onOpenChange={setShowLanguageDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Select Language</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2">
+            {languages.map((lang) => (
+              <button
+                key={lang.code}
+                onClick={() => {
+                  updatePreference('language', lang.code);
+                  setShowLanguageDialog(false);
+                  toast({
+                    title: "Language Updated",
+                    description: `Language changed to ${lang.name}`,
+                  });
+                }}
+                className={`w-full flex items-center gap-3 p-3 rounded-xl transition-colors ${
+                  preferences.language === lang.code
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-secondary hover:bg-secondary/80'
+                }`}
+              >
+                <span className="font-medium">{lang.name}</span>
+                {preferences.language === lang.code && (
+                  <Check className="w-5 h-5 ml-auto" />
+                )}
+              </button>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Export Dialog */}
+      <Dialog open={showExportDialog} onOpenChange={setShowExportDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Export Data</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <button
+              onClick={handleExportJSON}
+              className="w-full flex items-center gap-3 p-4 rounded-xl bg-secondary hover:bg-secondary/80 transition-colors"
+            >
+              <FileJson className="w-6 h-6 text-primary" />
+              <div className="text-left">
+                <p className="font-medium text-foreground">Export as JSON</p>
+                <p className="text-sm text-muted-foreground">Single file with all data</p>
+              </div>
+            </button>
+            <button
+              onClick={handleExportCSV}
+              className="w-full flex items-center gap-3 p-4 rounded-xl bg-secondary hover:bg-secondary/80 transition-colors"
+            >
+              <FileSpreadsheet className="w-6 h-6 text-primary" />
+              <div className="text-left">
+                <p className="font-medium text-foreground">Export as CSV</p>
+                <p className="text-sm text-muted-foreground">Separate files for each data type</p>
+              </div>
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Import Dialog */}
+      <Dialog open={showImportDialog} onOpenChange={setShowImportDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Import Data</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <button
+              onClick={() => handleImportClick('json')}
+              className="w-full flex items-center gap-3 p-4 rounded-xl bg-secondary hover:bg-secondary/80 transition-colors"
+            >
+              <FileJson className="w-6 h-6 text-primary" />
+              <div className="text-left">
+                <p className="font-medium text-foreground">Import from JSON</p>
+                <p className="text-sm text-muted-foreground">Restore from CHITRA backup</p>
+              </div>
+            </button>
+            <button
+              onClick={() => handleImportClick('csv')}
+              className="w-full flex items-center gap-3 p-4 rounded-xl bg-secondary hover:bg-secondary/80 transition-colors"
+            >
+              <FileSpreadsheet className="w-6 h-6 text-primary" />
+              <div className="text-left">
+                <p className="font-medium text-foreground">Import from CSV</p>
+                <p className="text-sm text-muted-foreground">Name file as cycles, weights, or checkins</p>
+              </div>
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Delete Dialog */}
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
