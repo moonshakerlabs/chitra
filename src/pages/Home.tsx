@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { Heart, Droplets, Scale, Smile, TrendingUp } from 'lucide-react';
+import { Heart, Droplets, Weight, Smile, TrendingUp } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
@@ -26,7 +26,7 @@ const Home = () => {
       >
         <div>
           <p className="text-muted-foreground">{getGreeting()}</p>
-          <h1 className="text-2xl font-bold text-foreground">Welcome to CHITRA</h1>
+          <h1 className="text-2xl font-bold text-foreground">CHITRA Welcomes You</h1>
         </div>
         <div className="w-12 h-12 rounded-full bg-primary flex items-center justify-center">
           <Heart className="w-6 h-6 text-primary-foreground fill-primary-foreground" />
@@ -53,7 +53,7 @@ const Home = () => {
           className="h-24 flex-col gap-2 rounded-2xl border-2 hover:border-primary hover:bg-primary/5"
           onClick={() => navigate('/weight')}
         >
-          <Scale className="w-8 h-8 text-primary" />
+          <Weight className="w-8 h-8 text-primary" />
           <span className="text-sm font-medium">Log Weight</span>
         </Button>
       </motion.div>
@@ -117,7 +117,7 @@ const Home = () => {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-xl bg-secondary flex items-center justify-center">
-                  <Scale className="w-5 h-5 text-primary" />
+                  <Weight className="w-5 h-5 text-primary" />
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Current Weight</p>
