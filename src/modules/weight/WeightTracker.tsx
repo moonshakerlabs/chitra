@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Scale, Plus, TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { Scale, Plus, TrendingUp, TrendingDown, Minus, ArrowLeft, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
@@ -8,17 +9,20 @@ import { useWeights, useLatestWeight, useWeightTrend, useWeightChart } from './u
 import { formatDate } from '@/core/utils/dateUtils';
 import { formatWeight } from '@/core/utils/helpers';
 import WeightLogModal from './WeightLogModal';
+import WeightEditModal from './WeightEditModal';
 import { getPreferences } from '@/core/storage';
-import { useEffect, useState as useLocalState } from 'react';
-import type { WeightUnit } from '@/core/types';
+import type { WeightUnit, WeightEntry } from '@/core/types';
 
 const WeightTracker = () => {
+  const navigate = useNavigate();
   const { weights, loading, reload } = useWeights();
   const { weight: latestWeight, reload: reloadLatest } = useLatestWeight();
   const { trend, reload: reloadTrend } = useWeightTrend(30);
   const { data: chartData, reload: reloadChart } = useWeightChart(30);
   const [showLogModal, setShowLogModal] = useState(false);
-  const [unit, setUnit] = useLocalState<WeightUnit>('kg');
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingEntry, setEditingEntry] = useState<WeightEntry | null>(null);
+  const [unit, setUnit] = useState<WeightUnit>('kg');
 
   useEffect(() => {
     const loadUnit = async () => {
@@ -34,6 +38,20 @@ const WeightTracker = () => {
     reloadLatest();
     reloadTrend();
     reloadChart();
+  };
+
+  const handleEditComplete = () => {
+    setShowEditModal(false);
+    setEditingEntry(null);
+    reload();
+    reloadLatest();
+    reloadTrend();
+    reloadChart();
+  };
+
+  const openEditModal = (entry: WeightEntry) => {
+    setEditingEntry(entry);
+    setShowEditModal(true);
   };
 
   const getTrendIcon = () => {
@@ -58,12 +76,22 @@ const WeightTracker = () => {
   }
 
   return (
-    <div className="px-4 py-6 space-y-6">
+    <div className="px-4 py-6 space-y-6 pb-24">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Weight Journey</h1>
-          <p className="text-muted-foreground text-sm mt-1">Track your progress</p>
+        <div className="flex items-center gap-3">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => navigate('/')}
+            className="rounded-full"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </Button>
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">Weight Journey</h1>
+            <p className="text-muted-foreground text-sm mt-1">Track your progress</p>
+          </div>
         </div>
         <Button
           size="icon"
@@ -220,9 +248,13 @@ const WeightTracker = () => {
           <h2 className="text-lg font-semibold text-foreground mb-3">Recent Entries</h2>
           <div className="space-y-2">
             {weights.slice(0, 5).map((entry) => (
-              <Card key={entry.id} className="p-3">
+              <Card 
+                key={entry.id} 
+                className="p-3 cursor-pointer hover:bg-secondary/50 transition-colors"
+                onClick={() => openEditModal(entry)}
+              >
                 <div className="flex items-center justify-between">
-                  <div>
+                  <div className="flex-1">
                     <p className="font-medium text-foreground">
                       {formatWeight(entry.weight, entry.unit)}
                     </p>
@@ -231,10 +263,13 @@ const WeightTracker = () => {
                     </p>
                   </div>
                   {entry.notes && (
-                    <p className="text-xs text-muted-foreground max-w-[150px] truncate">
+                    <p className="text-xs text-muted-foreground max-w-[120px] truncate mr-2">
                       {entry.notes}
                     </p>
                   )}
+                  <Button variant="ghost" size="icon" className="shrink-0">
+                    <Pencil className="w-4 h-4 text-muted-foreground" />
+                  </Button>
                 </div>
               </Card>
             ))}
@@ -249,6 +284,19 @@ const WeightTracker = () => {
         onComplete={handleLogComplete}
         defaultUnit={unit}
       />
+
+      {/* Edit Modal */}
+      {editingEntry && (
+        <WeightEditModal
+          open={showEditModal}
+          onClose={() => {
+            setShowEditModal(false);
+            setEditingEntry(null);
+          }}
+          onComplete={handleEditComplete}
+          entry={editingEntry}
+        />
+      )}
     </div>
   );
 };
