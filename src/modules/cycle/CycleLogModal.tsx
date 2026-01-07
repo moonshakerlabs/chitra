@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { addCycle } from './cycleService';
+import { useProfile } from '@/core/context/ProfileContext';
 import type { MoodType, PainLevel } from '@/core/types';
 
 interface CycleLogModalProps {
@@ -39,11 +40,14 @@ const CycleLogModal = ({ open, onClose, onComplete }: CycleLogModalProps) => {
   const [painLevel, setPainLevel] = useState<PainLevel | undefined>();
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
+  const { activeProfile } = useProfile();
 
   const handleSave = async () => {
+    if (!activeProfile) return;
     setSaving(true);
     try {
       await addCycle({
+        profileId: activeProfile.id,
         startDate,
         endDate: endDate || undefined,
         mood,
