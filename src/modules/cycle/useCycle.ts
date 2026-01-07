@@ -82,8 +82,8 @@ export const useLatestCycle = () => {
     load();
   }, [load]);
 
-  const startToday = async (mood?: MoodType, painLevel?: PainLevel) => {
-    const newCycle = await startCycleToday(mood, painLevel);
+  const startToday = async (profileId: string, mood?: MoodType, painLevel?: PainLevel) => {
+    const newCycle = await startCycleToday(profileId, mood, painLevel);
     setCycle(newCycle);
     return newCycle;
   };

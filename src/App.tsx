@@ -11,13 +11,16 @@ import { WeightTracker } from "./modules/weight";
 import Settings from "./settings/Settings";
 import BottomNav from "./shared/components/BottomNav";
 import NotFound from "./pages/NotFound";
-import { isOnboardingCompleted, getPreferences } from "./core/storage";
+import { isOnboardingCompleted, getPreferences, isPinEnabled } from "./core/storage";
+import { ProfileProvider } from "./core/context/ProfileContext";
+import { PinLockScreen } from "./security";
 import type { ThemeMode } from "./core/types";
 
 const queryClient = new QueryClient();
 
 const AppContent = () => {
   const [showOnboarding, setShowOnboarding] = useState<boolean | null>(null);
+  const [isLocked, setIsLocked] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -25,9 +28,29 @@ const AppContent = () => {
     applyTheme();
   }, []);
 
+  // Lock app when it goes to background
+  useEffect(() => {
+    const handleVisibilityChange = async () => {
+      if (document.hidden) {
+        const pinEnabled = await isPinEnabled();
+        if (pinEnabled) {
+          setIsLocked(true);
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, []);
+
   const checkOnboarding = async () => {
     const completed = await isOnboardingCompleted();
     setShowOnboarding(!completed);
+    
+    // Check if PIN is enabled
+    const pinEnabled = await isPinEnabled();
+    setIsLocked(pinEnabled);
+    
     setLoading(false);
   };
 
@@ -53,6 +76,10 @@ const AppContent = () => {
     setShowOnboarding(false);
   };
 
+  const handleUnlock = () => {
+    setIsLocked(false);
+  };
+
   if (loading) {
     return (
       <div className="fixed inset-0 bg-background flex items-center justify-center">
@@ -65,19 +92,25 @@ const AppContent = () => {
     return <OnboardingFlow onComplete={handleOnboardingComplete} />;
   }
 
+  if (isLocked) {
+    return <PinLockScreen onUnlock={handleUnlock} />;
+  }
+
   return (
-    <div className="min-h-screen bg-background">
-      <main className="pb-20">
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/cycle" element={<CycleTracker />} />
-          <Route path="/weight" element={<WeightTracker />} />
-          <Route path="/settings" element={<Settings />} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </main>
-      <BottomNav />
-    </div>
+    <ProfileProvider>
+      <div className="min-h-screen bg-background">
+        <main className="pb-20">
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/cycle" element={<CycleTracker />} />
+            <Route path="/weight" element={<WeightTracker />} />
+            <Route path="/settings" element={<Settings />} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </main>
+        <BottomNav />
+      </div>
+    </ProfileProvider>
   );
 };
 

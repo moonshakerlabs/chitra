@@ -5,6 +5,7 @@ import { Calendar, Plus, Droplets, Clock, ArrowLeft, Pencil, CalendarDays } from
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { useLatestCycle, useCycleInsights, useCycles } from './useCycle';
+import { useProfile } from '@/core/context/ProfileContext';
 import { formatDate, formatDuration } from '@/core/utils/dateUtils';
 import CycleLogModal from './CycleLogModal';
 import CycleEditModal from './CycleEditModal';
@@ -13,6 +14,7 @@ import { addDays, differenceInDays, format } from 'date-fns';
 
 const CycleTracker = () => {
   const navigate = useNavigate();
+  const { activeProfile } = useProfile();
   const { cycle, loading, isOngoing, startToday, endToday, reload } = useLatestCycle();
   const { insights, reload: reloadInsights } = useCycleInsights();
   const { cycles, reload: reloadCycles } = useCycles();
@@ -21,10 +23,11 @@ const CycleTracker = () => {
   const [editingEntry, setEditingEntry] = useState<CycleEntry | null>(null);
 
   const handleQuickLog = async () => {
+    if (!activeProfile) return;
     if (isOngoing) {
       await endToday();
     } else {
-      await startToday();
+      await startToday(activeProfile.id);
     }
     reloadInsights();
     reloadCycles();

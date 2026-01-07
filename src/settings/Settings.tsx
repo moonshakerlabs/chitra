@@ -17,18 +17,26 @@ import {
   CreditCard,
   Check,
   FileJson,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Users,
+  Shield,
+  Lock
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import { Switch } from '@/components/ui/switch';
 import { 
   getPreferences, 
   savePreferences, 
   clearAllData,
-  resetPreferences 
+  resetPreferences,
+  isPinEnabled,
+  disablePin
 } from '@/core/storage';
-import { exportToJSON, exportToCSV, importFromJSON, importFromCSV } from '@/core/export';
-import type { UserPreferences, ThemeMode, ColorTheme, CountryCode, LanguageCode } from '@/core/types';
+import { exportDataMobile, isNativePlatform } from '@/core/export/mobileExport';
+import { importFromJSON, importFromCSV } from '@/core/export';
+import { useProfile } from '@/core/context/ProfileContext';
+import type { UserPreferences, ThemeMode, ColorTheme, CountryCode, LanguageCode, ExportDataType, ExportFormat } from '@/core/types';
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
@@ -46,6 +54,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import ProfileEditModal from '@/profiles/ProfileEditModal';
+import { PinSetupScreen } from '@/security';
 
 const countries: Array<{ code: CountryCode; name: string; flag: string }> = [
   { code: 'USA', name: 'United States', flag: '🇺🇸' },
@@ -82,18 +92,30 @@ const Settings = () => {
   const [showLanguageDialog, setShowLanguageDialog] = useState(false);
   const [showExportDialog, setShowExportDialog] = useState(false);
   const [showImportDialog, setShowImportDialog] = useState(false);
+  const [showProfileDialog, setShowProfileDialog] = useState(false);
+  const [showPinSetup, setShowPinSetup] = useState(false);
+  const [pinEnabled, setPinEnabled] = useState(false);
+  const [exportDataType, setExportDataType] = useState<ExportDataType>('both');
+  const [exportFormat, setExportFormat] = useState<ExportFormat>('json');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [importType, setImportType] = useState<'json' | 'csv'>('json');
   const { toast } = useToast();
+  const { profiles, activeProfile } = useProfile();
 
   useEffect(() => {
     loadPreferences();
+    checkPinStatus();
   }, []);
 
   const loadPreferences = async () => {
     const prefs = await getPreferences();
     setPreferences(prefs);
     setLoading(false);
+  };
+
+  const checkPinStatus = async () => {
+    const enabled = await isPinEnabled();
+    setPinEnabled(enabled);
   };
 
   const updatePreference = async <K extends keyof UserPreferences>(
@@ -153,31 +175,28 @@ const Settings = () => {
     });
   };
 
-  const handleExportJSON = async () => {
+  const handleExport = async () => {
     try {
-      await exportToJSON();
-      toast({
-        title: "Export Successful",
-        description: "Your data has been exported to JSON.",
-      });
-      setShowExportDialog(false);
-    } catch (error) {
-      toast({
-        title: "Export Failed",
-        description: "Failed to export data. Please try again.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleExportCSV = async () => {
-    try {
-      await exportToCSV();
-      toast({
-        title: "Export Successful",
-        description: "Your data has been exported to CSV files.",
-      });
-      setShowExportDialog(false);
+      const result = await exportDataMobile(
+        { dataType: exportDataType, format: exportFormat },
+        activeProfile?.id
+      );
+      
+      if (result.success) {
+        toast({
+          title: "Export Successful",
+          description: result.filePath 
+            ? `Saved to: ${result.filePath.split('/').pop()}`
+            : "Your data has been exported.",
+        });
+        setShowExportDialog(false);
+      } else {
+        toast({
+          title: "Export Failed",
+          description: result.error || "Failed to export data.",
+          variant: "destructive",
+        });
+      }
     } catch (error) {
       toast({
         title: "Export Failed",
@@ -247,6 +266,24 @@ const Settings = () => {
     }
   };
 
+  const handlePinToggle = async (enabled: boolean) => {
+    if (enabled) {
+      setShowPinSetup(true);
+    } else {
+      await disablePin();
+      setPinEnabled(false);
+      toast({
+        title: "PIN Disabled",
+        description: "App protection has been turned off",
+      });
+    }
+  };
+
+  const handlePinSetupComplete = () => {
+    setShowPinSetup(false);
+    setPinEnabled(true);
+  };
+
   const handleDeleteAllData = async () => {
     await clearAllData();
     toast({
@@ -268,6 +305,15 @@ const Settings = () => {
     setShowResetDialog(false);
     window.location.reload();
   };
+
+  if (showPinSetup) {
+    return (
+      <PinSetupScreen 
+        onComplete={handlePinSetupComplete} 
+        onCancel={() => setShowPinSetup(false)} 
+      />
+    );
+  }
 
   if (loading || !preferences) {
     return (
@@ -297,10 +343,62 @@ const Settings = () => {
         <p className="text-muted-foreground text-sm mt-1">Customize your experience</p>
       </div>
 
+      {/* Profiles Section */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+      >
+        <h2 className="text-sm font-medium text-muted-foreground mb-3 uppercase tracking-wide">Profiles</h2>
+        <Card className="divide-y divide-border">
+          <button 
+            onClick={() => setShowProfileDialog(true)}
+            className="flex items-center justify-between p-4 w-full text-left hover:bg-secondary/50 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-secondary flex items-center justify-center">
+                <Users className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <p className="font-medium text-foreground">Manage Profiles</p>
+                <p className="text-sm text-muted-foreground">{profiles.length} profile{profiles.length !== 1 ? 's' : ''}</p>
+              </div>
+            </div>
+            <ChevronRight className="w-5 h-5 text-muted-foreground" />
+          </button>
+        </Card>
+      </motion.div>
+
+      {/* Security Section */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.05 }}
+      >
+        <h2 className="text-sm font-medium text-muted-foreground mb-3 uppercase tracking-wide">Security</h2>
+        <Card className="divide-y divide-border">
+          <div className="flex items-center justify-between p-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-secondary flex items-center justify-center">
+                <Lock className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <p className="font-medium text-foreground">PIN Protection</p>
+                <p className="text-sm text-muted-foreground">Protect app with 6-digit PIN</p>
+              </div>
+            </div>
+            <Switch
+              checked={pinEnabled}
+              onCheckedChange={handlePinToggle}
+            />
+          </div>
+        </Card>
+      </motion.div>
+
       {/* General Settings */}
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
       >
         <h2 className="text-sm font-medium text-muted-foreground mb-3 uppercase tracking-wide">General</h2>
         <Card className="divide-y divide-border">
@@ -344,7 +442,7 @@ const Settings = () => {
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1 }}
+        transition={{ delay: 0.15 }}
       >
         <h2 className="text-sm font-medium text-muted-foreground mb-3 uppercase tracking-wide">Appearance</h2>
         <Card className="divide-y divide-border">
@@ -542,6 +640,12 @@ const Settings = () => {
         </Card>
       </motion.div>
 
+      {/* Profile Edit Modal */}
+      <ProfileEditModal
+        open={showProfileDialog}
+        onOpenChange={setShowProfileDialog}
+      />
+
       {/* Country Selection Dialog */}
       <Dialog open={showCountryDialog} onOpenChange={setShowCountryDialog}>
         <DialogContent>
@@ -617,27 +721,59 @@ const Settings = () => {
           <DialogHeader>
             <DialogTitle>Export Data</DialogTitle>
           </DialogHeader>
-          <div className="space-y-3">
-            <button
-              onClick={handleExportJSON}
-              className="w-full flex items-center gap-3 p-4 rounded-xl bg-secondary hover:bg-secondary/80 transition-colors"
-            >
-              <FileJson className="w-6 h-6 text-primary" />
-              <div className="text-left">
-                <p className="font-medium text-foreground">Export as JSON</p>
-                <p className="text-sm text-muted-foreground">Single file with all data</p>
+          <div className="space-y-4">
+            {/* Data Type Selection */}
+            <div>
+              <p className="text-sm font-medium mb-2">What to export?</p>
+              <div className="grid grid-cols-3 gap-2">
+                {(['cycles', 'weights', 'both'] as ExportDataType[]).map((type) => (
+                  <button
+                    key={type}
+                    onClick={() => setExportDataType(type)}
+                    className={`p-2 rounded-xl text-sm font-medium capitalize transition-all ${
+                      exportDataType === type
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-secondary hover:bg-secondary/80'
+                    }`}
+                  >
+                    {type}
+                  </button>
+                ))}
               </div>
-            </button>
-            <button
-              onClick={handleExportCSV}
-              className="w-full flex items-center gap-3 p-4 rounded-xl bg-secondary hover:bg-secondary/80 transition-colors"
-            >
-              <FileSpreadsheet className="w-6 h-6 text-primary" />
-              <div className="text-left">
-                <p className="font-medium text-foreground">Export as CSV</p>
-                <p className="text-sm text-muted-foreground">Separate files for each data type</p>
+            </div>
+
+            {/* Format Selection */}
+            <div>
+              <p className="text-sm font-medium mb-2">Format</p>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => setExportFormat('json')}
+                  className={`flex items-center gap-2 p-3 rounded-xl transition-colors ${
+                    exportFormat === 'json'
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-secondary hover:bg-secondary/80'
+                  }`}
+                >
+                  <FileJson className="w-5 h-5" />
+                  <span className="font-medium">JSON</span>
+                </button>
+                <button
+                  onClick={() => setExportFormat('csv')}
+                  className={`flex items-center gap-2 p-3 rounded-xl transition-colors ${
+                    exportFormat === 'csv'
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-secondary hover:bg-secondary/80'
+                  }`}
+                >
+                  <FileSpreadsheet className="w-5 h-5" />
+                  <span className="font-medium">CSV</span>
+                </button>
               </div>
-            </button>
+            </div>
+
+            <Button onClick={handleExport} className="w-full">
+              Export
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
