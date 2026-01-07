@@ -55,7 +55,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import ProfileEditModal from '@/profiles/ProfileEditModal';
-import { PinSetupScreen } from '@/security';
+import { PinSetupScreen, ChangePinScreen } from '@/security';
 
 const countries: Array<{ code: CountryCode; name: string; flag: string }> = [
   { code: 'USA', name: 'United States', flag: '🇺🇸' },
@@ -94,9 +94,11 @@ const Settings = () => {
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [showProfileDialog, setShowProfileDialog] = useState(false);
   const [showPinSetup, setShowPinSetup] = useState(false);
+  const [showChangePin, setShowChangePin] = useState(false);
   const [pinEnabled, setPinEnabled] = useState(false);
   const [exportDataType, setExportDataType] = useState<ExportDataType>('both');
   const [exportFormat, setExportFormat] = useState<ExportFormat>('json');
+  const [exportProfileOption, setExportProfileOption] = useState<'current' | 'all'>('current');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [importType, setImportType] = useState<'json' | 'csv'>('json');
   const { toast } = useToast();
@@ -177,9 +179,13 @@ const Settings = () => {
 
   const handleExport = async () => {
     try {
+      const profileIdToExport = exportProfileOption === 'current' 
+        ? activeProfile?.id 
+        : undefined;
+      
       const result = await exportDataMobile(
         { dataType: exportDataType, format: exportFormat },
-        activeProfile?.id
+        profileIdToExport
       );
       
       if (result.success) {
@@ -284,6 +290,10 @@ const Settings = () => {
     setPinEnabled(true);
   };
 
+  const handleChangePinComplete = () => {
+    setShowChangePin(false);
+  };
+
   const handleDeleteAllData = async () => {
     await clearAllData();
     toast({
@@ -311,6 +321,15 @@ const Settings = () => {
       <PinSetupScreen 
         onComplete={handlePinSetupComplete} 
         onCancel={() => setShowPinSetup(false)} 
+      />
+    );
+  }
+
+  if (showChangePin) {
+    return (
+      <ChangePinScreen 
+        onComplete={handleChangePinComplete} 
+        onCancel={() => setShowChangePin(false)} 
       />
     );
   }
@@ -391,6 +410,25 @@ const Settings = () => {
               onCheckedChange={handlePinToggle}
             />
           </div>
+          
+          {/* Change PIN option - only shown when PIN is enabled */}
+          {pinEnabled && (
+            <button 
+              onClick={() => setShowChangePin(true)}
+              className="flex items-center justify-between p-4 w-full text-left hover:bg-secondary/50 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-secondary flex items-center justify-center">
+                  <Shield className="w-5 h-5 text-primary" />
+                </div>
+                <div>
+                  <p className="font-medium text-foreground">Change PIN</p>
+                  <p className="text-sm text-muted-foreground">Update your security PIN</p>
+                </div>
+              </div>
+              <ChevronRight className="w-5 h-5 text-muted-foreground" />
+            </button>
+          )}
         </Card>
       </motion.div>
 
@@ -722,6 +760,33 @@ const Settings = () => {
             <DialogTitle>Export Data</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
+            {/* Profile Selection */}
+            <div>
+              <p className="text-sm font-medium mb-2">Export from</p>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => setExportProfileOption('current')}
+                  className={`p-2 rounded-xl text-sm font-medium transition-all ${
+                    exportProfileOption === 'current'
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-secondary hover:bg-secondary/80'
+                  }`}
+                >
+                  {activeProfile?.name || 'Current Profile'}
+                </button>
+                <button
+                  onClick={() => setExportProfileOption('all')}
+                  className={`p-2 rounded-xl text-sm font-medium transition-all ${
+                    exportProfileOption === 'all'
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-secondary hover:bg-secondary/80'
+                  }`}
+                >
+                  All Profiles
+                </button>
+              </div>
+            </div>
+
             {/* Data Type Selection */}
             <div>
               <p className="text-sm font-medium mb-2">What to export?</p>

@@ -8,17 +8,24 @@ import {
   calculateWeightTrend,
   getChartData
 } from './weightService';
-import type { WeightEntry, WeightTrend, WeightUnit } from '@/core/types';
+import { useProfile } from '@/core/context/ProfileContext';
+import type { WeightEntry, WeightTrend } from '@/core/types';
 
 export const useWeights = () => {
+  const { activeProfile } = useProfile();
   const [weights, setWeights] = useState<WeightEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const loadWeights = useCallback(async () => {
+    if (!activeProfile) {
+      setWeights([]);
+      setLoading(false);
+      return;
+    }
     try {
       setLoading(true);
-      const data = await getAllWeights();
+      const data = await getAllWeights(activeProfile.id);
       setWeights(data);
       setError(null);
     } catch (err) {
@@ -27,7 +34,7 @@ export const useWeights = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [activeProfile?.id]);
 
   useEffect(() => {
     loadWeights();
@@ -67,15 +74,21 @@ export const useWeights = () => {
 };
 
 export const useLatestWeight = () => {
+  const { activeProfile } = useProfile();
   const [weight, setWeight] = useState<WeightEntry | null>(null);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
+    if (!activeProfile) {
+      setWeight(null);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
-    const latest = await getLatestWeight();
+    const latest = await getLatestWeight(activeProfile.id);
     setWeight(latest);
     setLoading(false);
-  }, []);
+  }, [activeProfile?.id]);
 
   useEffect(() => {
     load();
@@ -89,15 +102,21 @@ export const useLatestWeight = () => {
 };
 
 export const useWeightTrend = (periodDays: number = 30) => {
+  const { activeProfile } = useProfile();
   const [trend, setTrend] = useState<WeightTrend | null>(null);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
+    if (!activeProfile) {
+      setTrend(null);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
-    const data = await calculateWeightTrend(periodDays);
+    const data = await calculateWeightTrend(periodDays, activeProfile.id);
     setTrend(data);
     setLoading(false);
-  }, [periodDays]);
+  }, [periodDays, activeProfile?.id]);
 
   useEffect(() => {
     load();
@@ -111,15 +130,21 @@ export const useWeightTrend = (periodDays: number = 30) => {
 };
 
 export const useWeightChart = (days: number = 30) => {
+  const { activeProfile } = useProfile();
   const [data, setData] = useState<Array<{ date: string; weight: number }>>([]);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
+    if (!activeProfile) {
+      setData([]);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
-    const chartData = await getChartData(days);
+    const chartData = await getChartData(days, activeProfile.id);
     setData(chartData);
     setLoading(false);
-  }, [days]);
+  }, [days, activeProfile?.id]);
 
   useEffect(() => {
     load();
