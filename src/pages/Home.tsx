@@ -1,20 +1,26 @@
+import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Heart, Droplets, Weight, Smile, TrendingUp } from 'lucide-react';
+import { Heart, Droplets, Weight, Smile, TrendingUp, Settings } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 import { useLatestCycle, useCycleInsights } from '@/modules/cycle';
 import { useLatestWeight, useWeightTrend } from '@/modules/weight';
+import { useProfile } from '@/core/context/ProfileContext';
 import { getGreeting } from '@/core/utils/helpers';
 import { formatDate, getRelativeDay } from '@/core/utils/dateUtils';
 import { formatWeight } from '@/core/utils/helpers';
+import ProfileSelector from '@/shared/components/ProfileSelector';
+import ProfileEditModal from '@/profiles/ProfileEditModal';
 
 const Home = () => {
   const navigate = useNavigate();
+  const { activeProfile } = useProfile();
   const { cycle, isOngoing } = useLatestCycle();
   const { insights } = useCycleInsights();
   const { weight: latestWeight } = useLatestWeight();
   const { trend: weightTrend } = useWeightTrend(30);
+  const [showAddProfile, setShowAddProfile] = useState(false);
 
   return (
     <div className="px-4 py-6 space-y-6 pb-24">
@@ -26,11 +32,22 @@ const Home = () => {
       >
         <div>
           <p className="text-muted-foreground">{getGreeting()}</p>
-          <h1 className="text-2xl font-bold text-foreground">CHITRA Welcomes You</h1>
+          <h1 className="text-2xl font-bold text-foreground">
+            {activeProfile ? `Hi, ${activeProfile.name}` : 'CHITRA Welcomes You'}
+          </h1>
         </div>
         <div className="w-12 h-12 rounded-full bg-primary flex items-center justify-center">
           <Heart className="w-6 h-6 text-primary-foreground fill-primary-foreground" />
         </div>
+      </motion.div>
+
+      {/* Profile Selector */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.05 }}
+      >
+        <ProfileSelector onAddClick={() => setShowAddProfile(true)} />
       </motion.div>
 
       {/* Quick Actions */}
@@ -179,16 +196,11 @@ const Home = () => {
         </Card>
       </motion.div>
 
-      {/* Chitra AI Bot Placeholder */}
-      {/* <motion.button
-        initial={{ opacity: 0, scale: 0.8 }}
-        animate={{ opacity: 0.5, scale: 1 }}
-        transition={{ delay: 0.6 }}
-        className="fixed bottom-20 right-4 w-14 h-14 rounded-full bg-primary flex items-center justify-center shadow-lg cursor-not-allowed"
-        disabled
-      >
-        <MessageCircle className="w-6 h-6 text-primary-foreground" />
-      </motion.button> */}
+      {/* Add Profile Modal */}
+      <ProfileEditModal
+        open={showAddProfile}
+        onOpenChange={setShowAddProfile}
+      />
     </div>
   );
 };
