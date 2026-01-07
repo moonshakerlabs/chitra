@@ -1,8 +1,28 @@
 // Core Types for CHITRA Application
 
+// ============ Profile Types ============
+export type ProfileType = 'main' | 'dependent';
+
+export interface Profile {
+  id: string;
+  name: string;
+  type: ProfileType; // 'main' for 18+, 'dependent' for under 18
+  avatar: string; // emoji identifier
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ============ Security Types ============
+export interface SecuritySettings {
+  pinEnabled: boolean;
+  pinHash?: string; // Store hash, not plain PIN
+  lastLockedAt?: string;
+}
+
 // ============ Cycle Tracking Types ============
 export interface CycleEntry {
   id: string;
+  profileId: string; // Associated profile
   startDate: string; // ISO date string
   endDate?: string;
   startTime?: string;
@@ -30,6 +50,7 @@ export interface CycleInsights {
 // ============ Weight Tracking Types ============
 export interface WeightEntry {
   id: string;
+  profileId: string; // Associated profile
   date: string; // ISO date string
   weight: number;
   unit: WeightUnit;
@@ -50,6 +71,7 @@ export interface WeightTrend {
 // ============ Daily Check-in Types ============
 export interface DailyCheckIn {
   id: string;
+  profileId: string; // Associated profile
   date: string;
   mood?: MoodType;
   painLevel?: PainLevel;
@@ -66,6 +88,7 @@ export interface UserPreferences {
   weightUnit: WeightUnit;
   onboardingCompleted: boolean;
   privacyAccepted: boolean;
+  activeProfileId?: string; // Currently selected profile
   createdAt: string;
   updatedAt: string;
 }
@@ -112,7 +135,15 @@ export interface PaymentInfo {
 }
 
 // ============ Export/Import Types ============
-export type ExportFormat = 'csv' | 'json' | 'excel';
+export type ExportFormat = 'csv' | 'json';
+
+export type ExportDataType = 'cycles' | 'weights' | 'both';
+
+export interface ExportOptions {
+  dataType: ExportDataType;
+  format: ExportFormat;
+  profileId?: string;
+}
 
 export interface ExportData {
   cycles: CycleEntry[];

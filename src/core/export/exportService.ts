@@ -156,6 +156,7 @@ export const importFromCSV = async (file: File, dataType: 'cycles' | 'weights' |
           if (dataType === 'cycles') {
             const cycle: CycleEntry = {
               id: obj.id || crypto.randomUUID(),
+              profileId: obj.profileId || 'default-profile',
               startDate: obj.startDate,
               endDate: obj.endDate || undefined,
               notes: obj.notes || undefined,
@@ -166,6 +167,7 @@ export const importFromCSV = async (file: File, dataType: 'cycles' | 'weights' |
           } else if (dataType === 'weights') {
             const weight: WeightEntry = {
               id: obj.id || crypto.randomUUID(),
+              profileId: obj.profileId || 'default-profile',
               date: obj.date,
               weight: parseFloat(obj.weight) || 0,
               unit: (obj.unit as 'kg' | 'lb') || 'kg',
@@ -177,6 +179,7 @@ export const importFromCSV = async (file: File, dataType: 'cycles' | 'weights' |
           } else if (dataType === 'checkIns') {
           const checkIn: DailyCheckIn = {
               id: obj.id || crypto.randomUUID(),
+              profileId: obj.profileId || 'default-profile',
               date: obj.date,
               mood: obj.mood as DailyCheckIn['mood'],
               painLevel: obj.painLevel as PainLevel || undefined,

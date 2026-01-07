@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { addWeight } from './weightService';
+import { useProfile } from '@/core/context/ProfileContext';
 import type { WeightUnit } from '@/core/types';
 
 interface WeightLogModalProps {
@@ -22,14 +23,16 @@ const WeightLogModal = ({ open, onClose, onComplete, defaultUnit }: WeightLogMod
   const [unit, setUnit] = useState<WeightUnit>(defaultUnit);
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
+  const { activeProfile } = useProfile();
 
   const handleSave = async () => {
     const weightValue = parseFloat(weight);
-    if (isNaN(weightValue) || weightValue <= 0) return;
+    if (isNaN(weightValue) || weightValue <= 0 || !activeProfile) return;
 
     setSaving(true);
     try {
       await addWeight({
+        profileId: activeProfile.id,
         date,
         weight: weightValue,
         unit,

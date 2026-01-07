@@ -138,9 +138,10 @@ export const getCycleInsights = async (): Promise<CycleInsights> => {
 /**
  * Quick log: Start a new cycle today
  */
-export const startCycleToday = async (mood?: MoodType, painLevel?: PainLevel): Promise<CycleEntry> => {
+export const startCycleToday = async (profileId: string, mood?: MoodType, painLevel?: PainLevel): Promise<CycleEntry> => {
   const today = new Date().toISOString().split('T')[0];
   return addCycle({
+    profileId,
     startDate: today,
     mood,
     painLevel,
