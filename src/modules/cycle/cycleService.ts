@@ -5,11 +5,15 @@ import { daysBetween } from '@/core/utils/dateUtils';
 
 /**
  * Get all cycle entries sorted by start date (newest first)
+ * If profileId is provided, filter by profile
  */
-export const getAllCycles = async (): Promise<CycleEntry[]> => {
+export const getAllCycles = async (profileId?: string): Promise<CycleEntry[]> => {
   const db = await getDatabase();
   const cycles = await db.getAll('cycles');
-  return cycles.sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime());
+  const filtered = profileId 
+    ? cycles.filter(c => c.profileId === profileId)
+    : cycles;
+  return filtered.sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime());
 };
 
 /**
@@ -72,18 +76,18 @@ export const deleteCycle = async (id: string): Promise<boolean> => {
 };
 
 /**
- * Get the most recent cycle
+ * Get the most recent cycle for a profile
  */
-export const getLatestCycle = async (): Promise<CycleEntry | null> => {
-  const cycles = await getAllCycles();
+export const getLatestCycle = async (profileId?: string): Promise<CycleEntry | null> => {
+  const cycles = await getAllCycles(profileId);
   return cycles.length > 0 ? cycles[0] : null;
 };
 
 /**
- * Calculate cycle insights from historical data
+ * Calculate cycle insights from historical data for a profile
  */
-export const getCycleInsights = async (): Promise<CycleInsights> => {
-  const cycles = await getAllCycles();
+export const getCycleInsights = async (profileId?: string): Promise<CycleInsights> => {
+  const cycles = await getAllCycles(profileId);
   
   if (cycles.length === 0) {
     return {
@@ -151,8 +155,8 @@ export const startCycleToday = async (profileId: string, mood?: MoodType, painLe
 /**
  * Quick log: End the current cycle today
  */
-export const endCycleToday = async (): Promise<CycleEntry | null> => {
-  const latest = await getLatestCycle();
+export const endCycleToday = async (profileId?: string): Promise<CycleEntry | null> => {
+  const latest = await getLatestCycle(profileId);
   if (!latest || latest.endDate) return null;
   
   const today = new Date().toISOString().split('T')[0];

@@ -5,11 +5,15 @@ import { daysBetween } from '@/core/utils/dateUtils';
 
 /**
  * Get all weight entries sorted by date (newest first)
+ * If profileId is provided, filter by profile
  */
-export const getAllWeights = async (): Promise<WeightEntry[]> => {
+export const getAllWeights = async (profileId?: string): Promise<WeightEntry[]> => {
   const db = await getDatabase();
   const weights = await db.getAll('weights');
-  return weights.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  const filtered = profileId 
+    ? weights.filter(w => w.profileId === profileId)
+    : weights;
+  return filtered.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 };
 
 /**
@@ -72,26 +76,26 @@ export const deleteWeight = async (id: string): Promise<boolean> => {
 };
 
 /**
- * Get the most recent weight entry
+ * Get the most recent weight entry for a profile
  */
-export const getLatestWeight = async (): Promise<WeightEntry | null> => {
-  const weights = await getAllWeights();
+export const getLatestWeight = async (profileId?: string): Promise<WeightEntry | null> => {
+  const weights = await getAllWeights(profileId);
   return weights.length > 0 ? weights[0] : null;
 };
 
 /**
  * Get weight entries for a specific date range
  */
-export const getWeightsInRange = async (startDate: string, endDate: string): Promise<WeightEntry[]> => {
-  const weights = await getAllWeights();
+export const getWeightsInRange = async (startDate: string, endDate: string, profileId?: string): Promise<WeightEntry[]> => {
+  const weights = await getAllWeights(profileId);
   return weights.filter(w => w.date >= startDate && w.date <= endDate);
 };
 
 /**
- * Calculate weight trend over a period
+ * Calculate weight trend over a period for a profile
  */
-export const calculateWeightTrend = async (periodDays: number = 30): Promise<WeightTrend | null> => {
-  const weights = await getAllWeights();
+export const calculateWeightTrend = async (periodDays: number = 30, profileId?: string): Promise<WeightTrend | null> => {
+  const weights = await getAllWeights(profileId);
   
   if (weights.length < 2) return null;
   
@@ -128,10 +132,10 @@ export const calculateWeightTrend = async (periodDays: number = 30): Promise<Wei
 };
 
 /**
- * Get weight data formatted for chart display
+ * Get weight data formatted for chart display for a profile
  */
-export const getChartData = async (days: number = 30): Promise<Array<{ date: string; weight: number }>> => {
-  const weights = await getAllWeights();
+export const getChartData = async (days: number = 30, profileId?: string): Promise<Array<{ date: string; weight: number }>> => {
+  const weights = await getAllWeights(profileId);
   
   const startDate = new Date();
   startDate.setDate(startDate.getDate() - days);

@@ -9,17 +9,24 @@ import {
   startCycleToday,
   endCycleToday
 } from './cycleService';
+import { useProfile } from '@/core/context/ProfileContext';
 import type { CycleEntry, CycleInsights, MoodType, PainLevel } from '@/core/types';
 
 export const useCycles = () => {
+  const { activeProfile } = useProfile();
   const [cycles, setCycles] = useState<CycleEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const loadCycles = useCallback(async () => {
+    if (!activeProfile) {
+      setCycles([]);
+      setLoading(false);
+      return;
+    }
     try {
       setLoading(true);
-      const data = await getAllCycles();
+      const data = await getAllCycles(activeProfile.id);
       setCycles(data);
       setError(null);
     } catch (err) {
@@ -28,7 +35,7 @@ export const useCycles = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [activeProfile?.id]);
 
   useEffect(() => {
     loadCycles();
@@ -68,15 +75,21 @@ export const useCycles = () => {
 };
 
 export const useLatestCycle = () => {
+  const { activeProfile } = useProfile();
   const [cycle, setCycle] = useState<CycleEntry | null>(null);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
+    if (!activeProfile) {
+      setCycle(null);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
-    const latest = await getLatestCycle();
+    const latest = await getLatestCycle(activeProfile.id);
     setCycle(latest);
     setLoading(false);
-  }, []);
+  }, [activeProfile?.id]);
 
   useEffect(() => {
     load();
@@ -89,7 +102,7 @@ export const useLatestCycle = () => {
   };
 
   const endToday = async () => {
-    const updated = await endCycleToday();
+    const updated = await endCycleToday(activeProfile?.id);
     if (updated) setCycle(updated);
     return updated;
   };
@@ -105,15 +118,21 @@ export const useLatestCycle = () => {
 };
 
 export const useCycleInsights = () => {
+  const { activeProfile } = useProfile();
   const [insights, setInsights] = useState<CycleInsights | null>(null);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
+    if (!activeProfile) {
+      setInsights(null);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
-    const data = await getCycleInsights();
+    const data = await getCycleInsights(activeProfile.id);
     setInsights(data);
     setLoading(false);
-  }, []);
+  }, [activeProfile?.id]);
 
   useEffect(() => {
     load();
