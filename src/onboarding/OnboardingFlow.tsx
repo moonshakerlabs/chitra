@@ -4,10 +4,11 @@ import SplashScreen from './SplashScreen';
 import CountrySelect from './CountrySelect';
 import LanguageSelect from './LanguageSelect';
 import PrivacyMessage from './PrivacyMessage';
+import FolderSelect from './FolderSelect';
 import { savePreferences, completeOnboarding, acceptPrivacy } from '@/core/storage';
 import type { CountryCode, LanguageCode } from '@/core/types';
 
-type OnboardingStep = 'splash' | 'country' | 'language' | 'privacy';
+type OnboardingStep = 'splash' | 'country' | 'language' | 'privacy' | 'folder';
 
 interface OnboardingFlowProps {
   onComplete: () => void;
@@ -46,8 +47,21 @@ const OnboardingFlow = ({ onComplete }: OnboardingFlowProps) => {
       weightUnit: country === 'USA' || country === 'UK' ? 'lb' : 'kg',
     });
     await acceptPrivacy();
+    setStep('folder');
+  };
+
+  const handleFolderBack = () => {
+    setStep('privacy');
+  };
+
+  const handleFolderComplete = async () => {
     await completeOnboarding();
     onComplete();
+  };
+
+  const getStepIndex = (s: OnboardingStep): number => {
+    const steps = ['country', 'language', 'privacy', 'folder'];
+    return steps.indexOf(s);
   };
 
   return (
@@ -80,16 +94,23 @@ const OnboardingFlow = ({ onComplete }: OnboardingFlowProps) => {
             onBack={handlePrivacyBack}
           />
         )}
+        {step === 'folder' && (
+          <FolderSelect
+            key="folder"
+            onComplete={handleFolderComplete}
+            onBack={handleFolderBack}
+          />
+        )}
       </AnimatePresence>
 
       {/* Progress Indicator */}
       {step !== 'splash' && (
         <div className="absolute top-4 left-0 right-0 flex justify-center gap-2 px-6">
-          {['country', 'language', 'privacy'].map((s, i) => (
+          {['country', 'language', 'privacy', 'folder'].map((s, i) => (
             <div
               key={s}
               className={`h-1 flex-1 rounded-full transition-colors ${
-                ['country', 'language', 'privacy'].indexOf(step) >= i
+                getStepIndex(step) >= i
                   ? 'bg-primary'
                   : 'bg-border'
               }`}

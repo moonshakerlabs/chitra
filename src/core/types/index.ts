@@ -8,8 +8,72 @@ export interface Profile {
   name: string;
   type: ProfileType; // 'main' for 18+, 'dependent' for under 18
   avatar: string; // emoji identifier
+  dateOfBirth?: string; // ISO date string - required for dependents
   createdAt: string;
   updatedAt: string;
+}
+
+// ============ Vaccination Types ============
+export interface VaccinationEntry {
+  id: string;
+  profileId: string;
+  vaccineName: string;
+  dateAdministered: string;
+  notes?: string;
+  attachmentPath?: string; // Path in CHITRA folder
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ============ Feeding Types ============
+export interface FeedingSchedule {
+  id: string;
+  profileId: string;
+  feedingName: string;
+  reminderType: 'time' | 'interval';
+  reminderTime?: string; // HH:mm format for fixed time
+  intervalHours?: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface FeedingLog {
+  id: string;
+  scheduleId: string;
+  profileId: string;
+  completedAt: string;
+  snoozed: boolean;
+  snoozeUntil?: string;
+  createdAt: string;
+}
+
+// ============ Medicine Types ============
+export interface MedicineSchedule {
+  id: string;
+  profileId: string;
+  medicineName: string;
+  timesPerDay: number;
+  intervalHours: number;
+  totalDays?: number;
+  totalReminders?: number;
+  startDate: string;
+  isActive: boolean;
+  isPaused: boolean;
+  remindersSent: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface MedicineLog {
+  id: string;
+  scheduleId: string;
+  profileId: string;
+  takenAt?: string;
+  snoozedAt?: string;
+  snoozeUntil?: string;
+  status: 'taken' | 'snoozed' | 'missed';
+  createdAt: string;
 }
 
 // ============ Security Types ============
@@ -89,6 +153,8 @@ export interface UserPreferences {
   onboardingCompleted: boolean;
   privacyAccepted: boolean;
   activeProfileId?: string; // Currently selected profile
+  storageFolderPath?: string; // CHITRA folder path for exports/attachments
+  storageFolderAcknowledged: boolean; // User acknowledged data warning
   createdAt: string;
   updatedAt: string;
 }

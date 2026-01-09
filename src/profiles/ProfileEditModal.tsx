@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Trash2, AlertTriangle } from 'lucide-react';
+import { Trash2, AlertTriangle, Calendar } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -19,6 +19,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import type { Profile, ProfileType } from '@/core/types';
 import { 
   addProfile, 
@@ -29,6 +35,7 @@ import {
 } from '@/core/storage/profileService';
 import { useToast } from '@/hooks/use-toast';
 import { useProfile } from '@/core/context/ProfileContext';
+import { format, differenceInYears, parse } from 'date-fns';
 
 interface ProfileEditModalProps {
   open: boolean;
@@ -44,25 +51,34 @@ const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
   const [name, setName] = useState('');
   const [type, setType] = useState<ProfileType>('dependent');
   const [avatar, setAvatar] = useState('👤');
+  const [dateOfBirth, setDateOfBirth] = useState<Date | undefined>(undefined);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [canAddMain, setCanAddMain] = useState(true);
   const [canAddDependent, setCanAddDependent] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [calendarOpen, setCalendarOpen] = useState(false);
   const { toast } = useToast();
   const { reload, profiles } = useProfile();
 
   const isEditMode = !!profile;
   const avatars = getAvailableAvatars();
 
+  // Calculate age from date of birth
+  const calculateAge = (dob: Date): number => {
+    return differenceInYears(new Date(), dob);
+  };
+
   useEffect(() => {
     if (profile) {
       setName(profile.name);
       setType(profile.type);
       setAvatar(profile.avatar);
+      setDateOfBirth(profile.dateOfBirth ? new Date(profile.dateOfBirth) : undefined);
     } else {
       setName('');
       setType('dependent');
       setAvatar(avatars[Math.floor(Math.random() * avatars.length)]);
+      setDateOfBirth(undefined);
     }
     
     // Check what can be added
@@ -97,11 +113,41 @@ const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
       return;
     }
 
+    // Validate DOB for dependent profiles
+    if (type === 'dependent' && !dateOfBirth) {
+      toast({
+        title: 'Date of Birth Required',
+        description: 'Please enter the date of birth for dependent profiles',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    // Validate age matches profile type
+    if (dateOfBirth) {
+      const age = calculateAge(dateOfBirth);
+      if (type === 'dependent' && age >= 18) {
+        toast({
+          title: 'Invalid Date of Birth',
+          description: 'Dependent profiles must be under 18 years old',
+          variant: 'destructive',
+        });
+        return;
+      }
+    }
+
     setSaving(true);
 
     try {
+      const dobString = dateOfBirth ? dateOfBirth.toISOString() : undefined;
+      
       if (isEditMode && profile) {
-        const updated = await updateProfile(profile.id, { name: name.trim(), type, avatar });
+        const updated = await updateProfile(profile.id, { 
+          name: name.trim(), 
+          type, 
+          avatar,
+          dateOfBirth: dobString,
+        });
         if (updated) {
           toast({ title: 'Profile Updated', description: `${name} has been updated` });
           await reload();
@@ -114,7 +160,7 @@ const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
           });
         }
       } else {
-        const result = await addProfile(name.trim(), type, avatar);
+        const result = await addProfile(name.trim(), type, avatar, dobString);
         if (result.success) {
           toast({ title: 'Profile Added', description: `${name} has been added` });
           await reload();
@@ -196,6 +242,47 @@ const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
                 maxLength={20}
               />
             </div>
+
+            {/* Date of Birth - for dependent profiles */}
+            {type === 'dependent' && (
+              <div>
+                <Label className="text-sm font-medium mb-2 block">Date of Birth</Label>
+                <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="w-full justify-start text-left font-normal"
+                    >
+                      <Calendar className="mr-2 h-4 w-4" />
+                      {dateOfBirth ? (
+                        <span>
+                          {format(dateOfBirth, 'PPP')} ({calculateAge(dateOfBirth)} years old)
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">Select date of birth</span>
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <CalendarComponent
+                      mode="single"
+                      selected={dateOfBirth}
+                      onSelect={(date) => {
+                        setDateOfBirth(date);
+                        setCalendarOpen(false);
+                      }}
+                      disabled={(date) => date > new Date() || date < new Date('1900-01-01')}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+                {dateOfBirth && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Age: {calculateAge(dateOfBirth)} years old
+                  </p>
+                )}
+              </div>
+            )}
 
             {/* Profile Type */}
             <div>

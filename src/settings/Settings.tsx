@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { 
-  Settings as SettingsIcon, 
   Globe, 
   Languages, 
   Palette, 
@@ -13,14 +12,14 @@ import {
   RotateCcw,
   ChevronRight,
   Heart,
-  Info,
-  CreditCard,
   Check,
   FileJson,
   FileSpreadsheet,
   Users,
   Shield,
-  Lock
+  Lock,
+  Folder,
+  AlertTriangle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -36,6 +35,7 @@ import {
 import { exportDataMobile, isNativePlatform } from '@/core/export/mobileExport';
 import { importFromJSON, importFromCSV } from '@/core/export';
 import { useProfile } from '@/core/context/ProfileContext';
+import { getStorageFolderPath, clearStorageFolderConfig, createChitraFolder } from '@/core/storage/folderService';
 import type { UserPreferences, ThemeMode, ColorTheme, CountryCode, LanguageCode, ExportDataType, ExportFormat } from '@/core/types';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -95,7 +95,9 @@ const Settings = () => {
   const [showProfileDialog, setShowProfileDialog] = useState(false);
   const [showPinSetup, setShowPinSetup] = useState(false);
   const [showChangePin, setShowChangePin] = useState(false);
+  const [showChangeFolderDialog, setShowChangeFolderDialog] = useState(false);
   const [pinEnabled, setPinEnabled] = useState(false);
+  const [storageFolderPath, setStorageFolderPath] = useState<string | null>(null);
   const [exportDataType, setExportDataType] = useState<ExportDataType>('both');
   const [exportFormat, setExportFormat] = useState<ExportFormat>('json');
   const [exportProfileOption, setExportProfileOption] = useState<'current' | 'all'>('current');
@@ -107,6 +109,7 @@ const Settings = () => {
   useEffect(() => {
     loadPreferences();
     checkPinStatus();
+    loadStorageFolder();
   }, []);
 
   const loadPreferences = async () => {
@@ -118,6 +121,22 @@ const Settings = () => {
   const checkPinStatus = async () => {
     const enabled = await isPinEnabled();
     setPinEnabled(enabled);
+  };
+
+  const loadStorageFolder = async () => {
+    const path = await getStorageFolderPath();
+    setStorageFolderPath(path);
+  };
+
+  const handleChangeFolder = async () => {
+    setShowChangeFolderDialog(false);
+    await clearStorageFolderConfig();
+    await clearAllData();
+    toast({
+      title: 'Folder Changed',
+      description: 'App data has been reset. Please restart the app.',
+    });
+    window.location.reload();
   };
 
   const updatePreference = async <K extends keyof UserPreferences>(
@@ -432,6 +451,40 @@ const Settings = () => {
         </Card>
       </motion.div>
 
+      {/* Storage Section */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.07 }}
+      >
+        <h2 className="text-sm font-medium text-muted-foreground mb-3 uppercase tracking-wide">Storage</h2>
+        <Card className="divide-y divide-border">
+          <div className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-secondary flex items-center justify-center">
+                  <Folder className="w-5 h-5 text-primary" />
+                </div>
+                <div>
+                  <p className="font-medium text-foreground">Storage Folder</p>
+                  <p className="text-sm text-muted-foreground truncate max-w-48">
+                    {storageFolderPath || 'CHITRA folder'}
+                  </p>
+                </div>
+              </div>
+              <Button variant="outline" size="sm" onClick={() => setShowChangeFolderDialog(true)}>
+                Change
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground mt-3 flex items-center gap-1">
+              <AlertTriangle className="w-3 h-3" />
+              Do not change file or folder names manually.
+            </p>
+          </div>
+        </Card>
+      </motion.div>
+
+
       {/* General Settings */}
       <motion.div
         initial={{ opacity: 0, y: 10 }}
@@ -592,30 +645,6 @@ const Settings = () => {
         </Card>
       </motion.div>
 
-      {/* Subscription (Placeholder) */}
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.25 }}
-      >
-        <h2 className="text-sm font-medium text-muted-foreground mb-3 uppercase tracking-wide">Subscription</h2>
-        <Card className="p-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-secondary flex items-center justify-center">
-                <CreditCard className="w-5 h-5 text-primary" />
-              </div>
-              <div>
-                <p className="font-medium text-foreground">Free Plan</p>
-                <p className="text-sm text-muted-foreground">Currently using the free version</p>
-              </div>
-            </div>
-            <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded-full font-medium">
-              FREE
-            </span>
-          </div>
-        </Card>
-      </motion.div>
 
       {/* Danger Zone */}
       <motion.div
@@ -911,6 +940,30 @@ const Settings = () => {
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               Reset App
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Change Folder Dialog */}
+      <AlertDialog open={showChangeFolderDialog} onOpenChange={setShowChangeFolderDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-destructive" />
+              Change Storage Folder?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Changing the folder will reset CHITRA data. A new database will be created from scratch. Do not change file or folder names manually.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleChangeFolder}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Continue
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

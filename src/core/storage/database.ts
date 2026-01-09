@@ -7,7 +7,12 @@ import type {
   CarePoints,
   PaymentInfo,
   Profile,
-  SecuritySettings
+  SecuritySettings,
+  VaccinationEntry,
+  FeedingSchedule,
+  FeedingLog,
+  MedicineSchedule,
+  MedicineLog
 } from '../types';
 
 // Database schema
@@ -48,10 +53,35 @@ interface ChitraDB extends DBSchema {
     key: string;
     value: SecuritySettings & { id: string };
   };
+  vaccinations: {
+    key: string;
+    value: VaccinationEntry;
+    indexes: { 'by-profile': string; 'by-date': string };
+  };
+  feedingSchedules: {
+    key: string;
+    value: FeedingSchedule;
+    indexes: { 'by-profile': string };
+  };
+  feedingLogs: {
+    key: string;
+    value: FeedingLog;
+    indexes: { 'by-profile': string; 'by-schedule': string };
+  };
+  medicineSchedules: {
+    key: string;
+    value: MedicineSchedule;
+    indexes: { 'by-profile': string };
+  };
+  medicineLogs: {
+    key: string;
+    value: MedicineLog;
+    indexes: { 'by-profile': string; 'by-schedule': string };
+  };
 }
 
 const DB_NAME = 'chitra-db';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 
 let dbInstance: IDBPDatabase<ChitraDB> | null = null;
 
