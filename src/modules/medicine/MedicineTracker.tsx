@@ -93,7 +93,7 @@ const MedicineTracker = () => {
   }
 
   return (
-    <div className="px-4 py-6 space-y-6 pb-24">
+    <div className="px-4 py-6 space-y-6 pb-24 pt-4">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -102,7 +102,7 @@ const MedicineTracker = () => {
             Track medicine intake for {activeProfile?.name}
           </p>
         </div>
-        <ProfileSelector />
+        <ProfileSelector showAddButton={false} compact />
       </div>
 
       {/* Stats */}

@@ -7,11 +7,13 @@ import { cn } from '@/lib/utils';
 interface ProfileSelectorProps {
   onAddClick?: () => void;
   showAddButton?: boolean;
+  compact?: boolean; // For use in header areas
 }
 
 export const ProfileSelector: React.FC<ProfileSelectorProps> = ({ 
   onAddClick, 
-  showAddButton = true 
+  showAddButton = true,
+  compact = false,
 }) => {
   const { profiles, activeProfile, setActiveProfile, loading } = useProfile();
 
@@ -29,6 +31,30 @@ export const ProfileSelector: React.FC<ProfileSelectorProps> = ({
   }
 
   const canAddMore = profiles.length < 5;
+
+  // Compact mode for header usage - just show avatar dropdown
+  if (compact) {
+    return (
+      <div className="flex gap-2 items-center">
+        {profiles.map((profile) => (
+          <motion.button
+            key={profile.id}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => setActiveProfile(profile.id)}
+            className={cn(
+              "flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center text-lg transition-all",
+              activeProfile?.id === profile.id
+                ? "bg-primary/20 ring-2 ring-primary"
+                : "bg-secondary hover:bg-secondary/80"
+            )}
+            title={profile.name}
+          >
+            {profile.avatar}
+          </motion.button>
+        ))}
+      </div>
+    );
+  }
 
   return (
     <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">

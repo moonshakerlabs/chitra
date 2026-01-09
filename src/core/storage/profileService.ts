@@ -80,7 +80,8 @@ export const addProfile = async (
   name: string, 
   type: ProfileType, 
   avatar?: string,
-  dateOfBirth?: string
+  dateOfBirth?: string,
+  gender?: 'male' | 'female'
 ): Promise<{ success: boolean; profile?: Profile; error?: string }> => {
   const validation = await validateProfileAdd(type);
   if (!validation.valid) {
@@ -98,6 +99,7 @@ export const addProfile = async (
     name,
     type,
     avatar: selectedAvatar,
+    gender,
     dateOfBirth,
     createdAt: now,
     updatedAt: now,

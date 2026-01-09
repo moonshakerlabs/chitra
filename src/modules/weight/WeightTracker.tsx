@@ -11,6 +11,7 @@ import { formatWeight } from '@/core/utils/helpers';
 import WeightLogModal from './WeightLogModal';
 import WeightEditModal from './WeightEditModal';
 import { getPreferences } from '@/core/storage';
+import ProfileSelector from '@/shared/components/ProfileSelector';
 import type { WeightUnit, WeightEntry } from '@/core/types';
 
 const WeightTracker = () => {
@@ -93,14 +94,17 @@ const WeightTracker = () => {
             <p className="text-muted-foreground text-sm mt-1">Track your progress</p>
           </div>
         </div>
-        <Button
-          size="icon"
-          variant="outline"
-          onClick={() => setShowLogModal(true)}
-          className="rounded-full w-12 h-12"
-        >
-          <Plus className="w-5 h-5" />
-        </Button>
+        <div className="flex items-center gap-2">
+          <ProfileSelector showAddButton={false} compact />
+          <Button
+            size="icon"
+            variant="outline"
+            onClick={() => setShowLogModal(true)}
+            className="rounded-full w-10 h-10"
+          >
+            <Plus className="w-5 h-5" />
+          </Button>
+        </div>
       </div>
 
       {/* Current Weight Card */}

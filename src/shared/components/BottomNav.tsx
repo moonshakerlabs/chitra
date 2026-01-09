@@ -1,11 +1,9 @@
 import { NavLink } from 'react-router-dom';
-import { Home, Droplets, Weight, Settings } from 'lucide-react';
+import { Home, Settings } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 const navItems = [
   { to: '/', icon: Home, label: 'Home' },
-  { to: '/cycle', icon: Droplets, label: 'Cycle' },
-  { to: '/weight', icon: Weight, label: 'Weight' },
   { to: '/settings', icon: Settings, label: 'Settings' },
 ];
 

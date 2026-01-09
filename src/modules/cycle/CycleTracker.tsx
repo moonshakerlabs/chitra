@@ -9,6 +9,7 @@ import { useProfile } from '@/core/context/ProfileContext';
 import { formatDate, formatDuration } from '@/core/utils/dateUtils';
 import CycleLogModal from './CycleLogModal';
 import CycleEditModal from './CycleEditModal';
+import ProfileSelector from '@/shared/components/ProfileSelector';
 import type { CycleEntry } from '@/core/types';
 import { addDays, differenceInDays, format } from 'date-fns';
 
@@ -129,14 +130,17 @@ const CycleTracker = () => {
             <p className="text-muted-foreground text-sm mt-1">Track your menstrual cycle</p>
           </div>
         </div>
-        <Button
-          size="icon"
-          variant="outline"
-          onClick={() => setShowLogModal(true)}
-          className="rounded-full w-12 h-12"
-        >
-          <Plus className="w-5 h-5" />
-        </Button>
+        <div className="flex items-center gap-2">
+          <ProfileSelector showAddButton={false} compact />
+          <Button
+            size="icon"
+            variant="outline"
+            onClick={() => setShowLogModal(true)}
+            className="rounded-full w-10 h-10"
+          >
+            <Plus className="w-5 h-5" />
+          </Button>
+        </div>
       </div>
 
       {/* Current Status Card */}

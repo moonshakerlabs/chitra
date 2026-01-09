@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { format } from 'date-fns';
-import { Calendar, Paperclip, X, Camera, Upload, Bell, BellOff } from 'lucide-react';
+import { Calendar, Paperclip, X, Camera, Upload, Bell, BellOff, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -222,8 +222,19 @@ const VaccinationLogModal = ({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-sm max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
+        <DialogHeader className="flex flex-row items-center justify-between">
           <DialogTitle>{isEditMode ? 'Edit Vaccination' : 'Add Vaccination'}</DialogTitle>
+          {isEditMode && onDelete && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleDelete}
+              disabled={saving}
+              className="text-destructive hover:text-destructive hover:bg-destructive/10"
+            >
+              <X className="w-5 h-5" />
+            </Button>
+          )}
         </DialogHeader>
 
         <div className="space-y-4 py-4">
@@ -419,16 +430,6 @@ const VaccinationLogModal = ({
         </div>
 
         <div className="flex gap-2">
-          {isEditMode && onDelete && (
-            <Button
-              variant="destructive"
-              onClick={handleDelete}
-              disabled={saving}
-              className="flex-shrink-0"
-            >
-              Delete
-            </Button>
-          )}
           <Button
             variant="outline"
             onClick={() => onOpenChange(false)}
