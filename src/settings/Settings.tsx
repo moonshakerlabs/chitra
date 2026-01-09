@@ -410,69 +410,6 @@ const Settings = () => {
         </Card>
       </motion.div>
 
-      {/* Profile Mode Section - Only for main profile */}
-      {activeProfile?.type === 'main' && (
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.03 }}
-        >
-          <h2 className="text-sm font-medium text-muted-foreground mb-3 uppercase tracking-wide">Profile Mode</h2>
-          <Card className="divide-y divide-border">
-            <div className="p-4">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 rounded-xl bg-secondary flex items-center justify-center">
-                  {activeProfile.mode === 'pregnant' ? (
-                    <Baby className="w-5 h-5 text-primary" />
-                  ) : activeProfile.mode === 'childcare' ? (
-                    <Baby className="w-5 h-5 text-primary" />
-                  ) : (
-                    <Calendar className="w-5 h-5 text-primary" />
-                  )}
-                </div>
-                <div>
-                  <p className="font-medium text-foreground">Current Mode</p>
-                  <p className="text-sm text-muted-foreground capitalize">
-                    {activeProfile.mode === 'pregnant' ? 'Pregnant' : 
-                     activeProfile.mode === 'childcare' ? 'Child Care' : 'Normal'}
-                  </p>
-                </div>
-              </div>
-              <div className="flex gap-2">
-                {(['normal', 'pregnant', 'childcare'] as ProfileMode[]).map((mode) => (
-                  <button
-                    key={mode}
-                    onClick={async () => {
-                      const updates: Partial<{ mode: ProfileMode; pregnancyStartDate?: string; expectedDueDate?: string }> = { mode };
-                      if (mode === 'pregnant') {
-                        updates.pregnancyStartDate = new Date().toISOString().split('T')[0];
-                      }
-                      await updateProfile(activeProfile.id, updates);
-                      toast({
-                        title: 'Mode Updated',
-                        description: `Profile mode changed to ${mode === 'childcare' ? 'Child Care' : mode}`,
-                      });
-                      window.location.reload();
-                    }}
-                    className={`flex-1 py-2 px-3 rounded-xl text-sm font-medium capitalize transition-all ${
-                      (activeProfile.mode || 'normal') === mode
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
-                    }`}
-                  >
-                    {mode === 'childcare' ? 'Child Care' : mode}
-                  </button>
-                ))}
-              </div>
-              {activeProfile.mode === 'pregnant' && (
-                <p className="text-xs text-muted-foreground mt-3">
-                  Cycle predictions are hidden in pregnancy mode. Switch to Normal when your first period starts after pregnancy.
-                </p>
-              )}
-            </div>
-          </Card>
-        </motion.div>
-      )}
 
       {/* Security Section */}
       <motion.div

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Heart, Droplets, Weight, Smile, TrendingUp, Baby, Calendar, Syringe, Pill } from 'lucide-react';
+import { Heart, Droplets, Weight, Smile, TrendingUp, Baby, Syringe, Pill } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
@@ -14,19 +14,38 @@ import { updateProfile } from '@/core/storage/profileService';
 import ProfileSelector from '@/shared/components/ProfileSelector';
 import ProfileEditModal from '@/profiles/ProfileEditModal';
 import { useToast } from '@/hooks/use-toast';
+import { differenceInYears } from 'date-fns';
+import type { Profile } from '@/core/types';
 
 const Home = () => {
   const navigate = useNavigate();
-  const { activeProfile, reload } = useProfile();
+  const { activeProfile, profiles, reload } = useProfile();
   const { cycle, isOngoing } = useLatestCycle();
   const { insights } = useCycleInsights();
   const { weight: latestWeight } = useLatestWeight();
   const { trend: weightTrend } = useWeightTrend(30);
   const [showAddProfile, setShowAddProfile] = useState(false);
+  const [editingProfile, setEditingProfile] = useState<Profile | undefined>(undefined);
   const { toast } = useToast();
 
   const isPregnantMode = activeProfile?.mode === 'pregnant';
   const isChildcareMode = activeProfile?.mode === 'childcare';
+
+  // Check if cycle tracking should be hidden for this profile
+  const shouldHideCycle = () => {
+    if (!activeProfile) return false;
+    
+    // Hide for male profiles
+    if (activeProfile.gender === 'male') return true;
+    
+    // Hide for female profiles under 8 years old
+    if (activeProfile.dateOfBirth) {
+      const age = differenceInYears(new Date(), new Date(activeProfile.dateOfBirth));
+      if (age < 8) return true;
+    }
+    
+    return false;
+  };
 
   const handleSwitchToNormal = async () => {
     if (!activeProfile) return;
@@ -48,6 +67,8 @@ const Home = () => {
     return Math.floor(days / 7);
   };
 
+  const hideCycle = shouldHideCycle();
+
   return (
     <div className="px-4 py-6 space-y-6 pb-24">
       {/* Header */}
@@ -67,13 +88,17 @@ const Home = () => {
         </div>
       </motion.div>
 
-      {/* Profile Selector */}
+      {/* Profile Selector with Edit */}
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.05 }}
       >
-        <ProfileSelector onAddClick={() => setShowAddProfile(true)} />
+        <ProfileSelector 
+          onAddClick={() => setShowAddProfile(true)} 
+          onEditClick={(profile) => setEditingProfile(profile)}
+          showEditButton
+        />
       </motion.div>
 
       {/* Quick Actions */}
@@ -84,14 +109,16 @@ const Home = () => {
         className="space-y-3"
       >
         <div className="grid grid-cols-2 gap-3">
-          <Button
-            variant="outline"
-            className="h-20 flex-col gap-2 rounded-2xl border-2 hover:border-primary hover:bg-primary/5"
-            onClick={() => navigate('/cycle')}
-          >
-            <Droplets className="w-6 h-6 text-primary" />
-            <span className="text-xs font-medium">Log Cycle</span>
-          </Button>
+          {!hideCycle && (
+            <Button
+              variant="outline"
+              className="h-20 flex-col gap-2 rounded-2xl border-2 hover:border-primary hover:bg-primary/5"
+              onClick={() => navigate('/cycle')}
+            >
+              <Droplets className="w-6 h-6 text-primary" />
+              <span className="text-xs font-medium">Log Cycle</span>
+            </Button>
+          )}
           <Button
             variant="outline"
             className="h-20 flex-col gap-2 rounded-2xl border-2 hover:border-primary hover:bg-primary/5"
@@ -100,16 +127,28 @@ const Home = () => {
             <Weight className="w-6 h-6 text-primary" />
             <span className="text-xs font-medium">Log Weight</span>
           </Button>
+          {hideCycle && (
+            <Button
+              variant="outline"
+              className="h-20 flex-col gap-2 rounded-2xl border-2 hover:border-primary hover:bg-primary/5"
+              onClick={() => navigate('/vaccination')}
+            >
+              <Syringe className="w-6 h-6 text-primary" />
+              <span className="text-xs font-medium">Log Vaccination</span>
+            </Button>
+          )}
         </div>
         <div className="grid grid-cols-2 gap-3">
-          <Button
-            variant="outline"
-            className="h-20 flex-col gap-2 rounded-2xl border-2 hover:border-primary hover:bg-primary/5"
-            onClick={() => navigate('/vaccination')}
-          >
-            <Syringe className="w-6 h-6 text-primary" />
-            <span className="text-xs font-medium">Log Vaccination</span>
-          </Button>
+          {!hideCycle && (
+            <Button
+              variant="outline"
+              className="h-20 flex-col gap-2 rounded-2xl border-2 hover:border-primary hover:bg-primary/5"
+              onClick={() => navigate('/vaccination')}
+            >
+              <Syringe className="w-6 h-6 text-primary" />
+              <span className="text-xs font-medium">Log Vaccination</span>
+            </Button>
+          )}
           <Button
             variant="outline"
             className="h-20 flex-col gap-2 rounded-2xl border-2 hover:border-primary hover:bg-primary/5"
@@ -121,8 +160,8 @@ const Home = () => {
         </div>
       </motion.div>
 
-      {/* Cycle Status Card - Hidden in childcare mode */}
-      {!isChildcareMode && (
+      {/* Cycle Status Card - Hidden in childcare mode and for male/young profiles */}
+      {!isChildcareMode && !hideCycle && (
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -163,7 +202,7 @@ const Home = () => {
                   <Button 
                     variant="outline" 
                     size="sm" 
-                    className="w-full"
+                    className="w-full text-wrap leading-tight py-3 h-auto"
                     onClick={(e) => {
                       e.stopPropagation();
                       handleSwitchToNormal();
@@ -308,6 +347,13 @@ const Home = () => {
       <ProfileEditModal
         open={showAddProfile}
         onOpenChange={setShowAddProfile}
+      />
+
+      {/* Edit Profile Modal */}
+      <ProfileEditModal
+        open={!!editingProfile}
+        onOpenChange={(open) => !open && setEditingProfile(undefined)}
+        profile={editingProfile}
       />
     </div>
   );

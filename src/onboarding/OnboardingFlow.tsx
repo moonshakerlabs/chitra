@@ -5,10 +5,12 @@ import CountrySelect from './CountrySelect';
 import LanguageSelect from './LanguageSelect';
 import PrivacyMessage from './PrivacyMessage';
 import FolderSelect from './FolderSelect';
+import NameInput from './NameInput';
 import { savePreferences, completeOnboarding, acceptPrivacy } from '@/core/storage';
+import { addProfile, setActiveProfile } from '@/core/storage/profileService';
 import type { CountryCode, LanguageCode } from '@/core/types';
 
-type OnboardingStep = 'splash' | 'country' | 'language' | 'privacy' | 'folder';
+type OnboardingStep = 'splash' | 'country' | 'language' | 'name' | 'privacy' | 'folder';
 
 interface OnboardingFlowProps {
   onComplete: () => void;
@@ -18,6 +20,7 @@ const OnboardingFlow = ({ onComplete }: OnboardingFlowProps) => {
   const [step, setStep] = useState<OnboardingStep>('splash');
   const [country, setCountry] = useState<CountryCode>('OTHER');
   const [language, setLanguage] = useState<LanguageCode>('en');
+  const [userName, setUserName] = useState('');
 
   const handleSplashComplete = () => {
     setStep('country');
@@ -28,15 +31,24 @@ const OnboardingFlow = ({ onComplete }: OnboardingFlowProps) => {
   };
 
   const handleLanguageNext = () => {
-    setStep('privacy');
+    setStep('name');
   };
 
   const handleLanguageBack = () => {
     setStep('country');
   };
 
-  const handlePrivacyBack = () => {
+  const handleNameNext = (name: string) => {
+    setUserName(name);
+    setStep('privacy');
+  };
+
+  const handleNameBack = () => {
     setStep('language');
+  };
+
+  const handlePrivacyBack = () => {
+    setStep('name');
   };
 
   const handlePrivacyAccept = async () => {
@@ -47,6 +59,13 @@ const OnboardingFlow = ({ onComplete }: OnboardingFlowProps) => {
       weightUnit: country === 'USA' || country === 'UK' ? 'lb' : 'kg',
     });
     await acceptPrivacy();
+    
+    // Create the main profile with the user's name
+    const result = await addProfile(userName || 'Me', 'main');
+    if (result.success && result.profile) {
+      await setActiveProfile(result.profile.id);
+    }
+    
     setStep('folder');
   };
 
@@ -60,7 +79,7 @@ const OnboardingFlow = ({ onComplete }: OnboardingFlowProps) => {
   };
 
   const getStepIndex = (s: OnboardingStep): number => {
-    const steps = ['country', 'language', 'privacy', 'folder'];
+    const steps = ['country', 'language', 'name', 'privacy', 'folder'];
     return steps.indexOf(s);
   };
 
@@ -87,6 +106,13 @@ const OnboardingFlow = ({ onComplete }: OnboardingFlowProps) => {
             onBack={handleLanguageBack}
           />
         )}
+        {step === 'name' && (
+          <NameInput
+            key="name"
+            onNext={handleNameNext}
+            onBack={handleNameBack}
+          />
+        )}
         {step === 'privacy' && (
           <PrivacyMessage
             key="privacy"
@@ -106,7 +132,7 @@ const OnboardingFlow = ({ onComplete }: OnboardingFlowProps) => {
       {/* Progress Indicator */}
       {step !== 'splash' && (
         <div className="absolute top-4 left-0 right-0 flex justify-center gap-2 px-6">
-          {['country', 'language', 'privacy', 'folder'].map((s, i) => (
+          {['country', 'language', 'name', 'privacy', 'folder'].map((s, i) => (
             <div
               key={s}
               className={`h-1 flex-1 rounded-full transition-colors ${
