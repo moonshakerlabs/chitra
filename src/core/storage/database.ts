@@ -154,6 +154,39 @@ export const getDatabase = async (): Promise<IDBPDatabase<ChitraDB>> => {
       if (!db.objectStoreNames.contains('security')) {
         db.createObjectStore('security', { keyPath: 'id' });
       }
+
+      // Vaccinations store (new in v3)
+      if (!db.objectStoreNames.contains('vaccinations')) {
+        const vaccStore = db.createObjectStore('vaccinations', { keyPath: 'id' });
+        vaccStore.createIndex('by-profile', 'profileId');
+        vaccStore.createIndex('by-date', 'dateAdministered');
+      }
+
+      // Feeding Schedules store (new in v3)
+      if (!db.objectStoreNames.contains('feedingSchedules')) {
+        const feedingSchedStore = db.createObjectStore('feedingSchedules', { keyPath: 'id' });
+        feedingSchedStore.createIndex('by-profile', 'profileId');
+      }
+
+      // Feeding Logs store (new in v3)
+      if (!db.objectStoreNames.contains('feedingLogs')) {
+        const feedingLogStore = db.createObjectStore('feedingLogs', { keyPath: 'id' });
+        feedingLogStore.createIndex('by-profile', 'profileId');
+        feedingLogStore.createIndex('by-schedule', 'scheduleId');
+      }
+
+      // Medicine Schedules store (new in v3)
+      if (!db.objectStoreNames.contains('medicineSchedules')) {
+        const medSchedStore = db.createObjectStore('medicineSchedules', { keyPath: 'id' });
+        medSchedStore.createIndex('by-profile', 'profileId');
+      }
+
+      // Medicine Logs store (new in v3)
+      if (!db.objectStoreNames.contains('medicineLogs')) {
+        const medLogStore = db.createObjectStore('medicineLogs', { keyPath: 'id' });
+        medLogStore.createIndex('by-profile', 'profileId');
+        medLogStore.createIndex('by-schedule', 'scheduleId');
+      }
     },
   });
 

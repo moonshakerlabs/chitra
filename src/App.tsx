@@ -8,6 +8,8 @@ import OnboardingFlow from "./onboarding/OnboardingFlow";
 import Home from "./pages/Home";
 import { CycleTracker } from "./modules/cycle";
 import { WeightTracker } from "./modules/weight";
+import { VaccinationTracker } from "./modules/vaccination";
+import { MedicineTracker } from "./modules/medicine";
 import Settings from "./settings/Settings";
 import BottomNav from "./shared/components/BottomNav";
 import NotFound from "./pages/NotFound";
@@ -104,6 +106,8 @@ const AppContent = () => {
             <Route path="/" element={<Home />} />
             <Route path="/cycle" element={<CycleTracker />} />
             <Route path="/weight" element={<WeightTracker />} />
+            <Route path="/vaccination" element={<VaccinationTracker />} />
+            <Route path="/medicine" element={<MedicineTracker />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
