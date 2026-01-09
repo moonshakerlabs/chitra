@@ -231,6 +231,11 @@ export interface ExportData {
   cycles: CycleEntry[];
   weights: WeightEntry[];
   checkIns: DailyCheckIn[];
+  vaccinations: VaccinationEntry[];
+  medicineSchedules: MedicineSchedule[];
+  medicineLogs: MedicineLog[];
+  feedingSchedules: FeedingSchedule[];
+  feedingLogs: FeedingLog[];
   preferences: UserPreferences;
   exportedAt: string;
   appVersion: string;
