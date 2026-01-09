@@ -1,11 +1,13 @@
 import { NavLink } from 'react-router-dom';
-import { Home, Droplets, Weight, Settings } from 'lucide-react';
+import { Home, Droplets, Weight, Syringe, Pill, Settings } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 const navItems = [
   { to: '/', icon: Home, label: 'Home' },
   { to: '/cycle', icon: Droplets, label: 'Cycle' },
   { to: '/weight', icon: Weight, label: 'Weight' },
+  { to: '/vaccination', icon: Syringe, label: 'Vaccine' },
+  { to: '/medicine', icon: Pill, label: 'Medicine' },
   { to: '/settings', icon: Settings, label: 'Settings' },
 ];
 
