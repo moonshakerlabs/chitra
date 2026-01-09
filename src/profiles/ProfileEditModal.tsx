@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Trash2, AlertTriangle, Calendar, X } from 'lucide-react';
+import { Trash2, AlertTriangle, Calendar, Baby, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Progress } from '@/components/ui/progress';
 import {
   Dialog,
   DialogContent,
@@ -25,7 +26,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
-import type { Profile, ProfileType, Gender } from '@/core/types';
+import type { Profile, ProfileType, Gender, ProfileMode } from '@/core/types';
 import { 
   addProfile, 
   updateProfile, 
@@ -33,9 +34,10 @@ import {
   getAvailableAvatars,
   validateProfileAdd 
 } from '@/core/storage/profileService';
+import { getLatestCycle } from '@/modules/cycle/cycleService';
 import { useToast } from '@/hooks/use-toast';
 import { useProfile } from '@/core/context/ProfileContext';
-import { format, differenceInYears, subYears } from 'date-fns';
+import { format, differenceInYears, subYears, addWeeks } from 'date-fns';
 
 interface ProfileEditModalProps {
   open: boolean;
@@ -53,11 +55,18 @@ const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
   const [avatar, setAvatar] = useState('👤');
   const [gender, setGender] = useState<Gender>('female');
   const [dateOfBirth, setDateOfBirth] = useState<Date | undefined>(undefined);
+  const [mode, setMode] = useState<ProfileMode>('normal');
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showPregnancyDialog, setShowPregnancyDialog] = useState(false);
+  const [showLmpInputDialog, setShowLmpInputDialog] = useState(false);
+  const [lmpDate, setLmpDate] = useState<Date | undefined>(undefined);
+  const [lastCycleStart, setLastCycleStart] = useState<string | null>(null);
   const [canAddMain, setCanAddMain] = useState(true);
   const [canAddDependent, setCanAddDependent] = useState(true);
   const [saving, setSaving] = useState(false);
   const [calendarOpen, setCalendarOpen] = useState(false);
+  const [lmpCalendarOpen, setLmpCalendarOpen] = useState(false);
+  const [modeChanging, setModeChanging] = useState(false);
   const { toast } = useToast();
   const { reload, profiles } = useProfile();
 
@@ -83,6 +92,11 @@ const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
     return gender === 'male' ? 5 : 18;
   };
 
+  // Calculate expected due date (40 weeks from LMP)
+  const calculateDueDate = (lmp: Date): string => {
+    return addWeeks(lmp, 40).toISOString().split('T')[0];
+  };
+
   useEffect(() => {
     if (profile) {
       setName(profile.name);
@@ -90,12 +104,14 @@ const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
       setAvatar(profile.avatar);
       setGender(profile.gender || 'female');
       setDateOfBirth(profile.dateOfBirth ? new Date(profile.dateOfBirth) : undefined);
+      setMode(profile.mode || 'normal');
     } else {
       setName('');
       setType('dependent');
       setAvatar(avatars[Math.floor(Math.random() * avatars.length)]);
       setGender('female');
       setDateOfBirth(undefined);
+      setMode('normal');
     }
     
     // Check what can be added
@@ -118,6 +134,77 @@ const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
         setType('main');
       }
     }
+  };
+
+  const handleModeChange = async (newMode: ProfileMode) => {
+    if (newMode === mode) return;
+    
+    if (newMode === 'pregnant' && profile) {
+      // Check for last cycle entry
+      const latestCycle = await getLatestCycle(profile.id);
+      if (latestCycle) {
+        setLastCycleStart(latestCycle.startDate);
+        setShowPregnancyDialog(true);
+      } else {
+        setShowLmpInputDialog(true);
+      }
+    } else {
+      setMode(newMode);
+    }
+  };
+
+  const handleConfirmLastPeriod = async () => {
+    if (!profile || !lastCycleStart) return;
+    
+    setModeChanging(true);
+    setShowPregnancyDialog(false);
+    
+    const expectedDue = calculateDueDate(new Date(lastCycleStart));
+    
+    await updateProfile(profile.id, {
+      mode: 'pregnant',
+      pregnancyStartDate: lastCycleStart,
+      expectedDueDate: expectedDue,
+    });
+    
+    toast({
+      title: 'Pregnancy Mode Enabled',
+      description: `Expected due date: ${format(new Date(expectedDue), 'PPP')}`,
+    });
+    
+    await reload();
+    setModeChanging(false);
+    onOpenChange(false);
+  };
+
+  const handleEnterDifferentDate = () => {
+    setShowPregnancyDialog(false);
+    setShowLmpInputDialog(true);
+  };
+
+  const handleLmpSubmit = async () => {
+    if (!profile || !lmpDate) return;
+    
+    setModeChanging(true);
+    setShowLmpInputDialog(false);
+    
+    const lmpString = lmpDate.toISOString().split('T')[0];
+    const expectedDue = calculateDueDate(lmpDate);
+    
+    await updateProfile(profile.id, {
+      mode: 'pregnant',
+      pregnancyStartDate: lmpString,
+      expectedDueDate: expectedDue,
+    });
+    
+    toast({
+      title: 'Pregnancy Mode Enabled',
+      description: `Expected due date: ${format(new Date(expectedDue), 'PPP')}`,
+    });
+    
+    await reload();
+    setModeChanging(false);
+    onOpenChange(false);
   };
 
   const handleSave = async () => {
@@ -163,13 +250,24 @@ const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
       const dobString = dateOfBirth ? dateOfBirth.toISOString() : undefined;
       
       if (isEditMode && profile) {
-        const updated = await updateProfile(profile.id, { 
+        const updates: Partial<Profile> = { 
           name: name.trim(), 
           type, 
           avatar,
           gender: type === 'dependent' ? gender : undefined,
           dateOfBirth: dobString,
-        });
+        };
+        
+        // Only update mode if it changed and not to pregnant (handled separately)
+        if (mode !== profile.mode && mode !== 'pregnant') {
+          updates.mode = mode;
+          if (mode === 'normal') {
+            updates.pregnancyStartDate = undefined;
+            updates.expectedDueDate = undefined;
+          }
+        }
+        
+        const updated = await updateProfile(profile.id, updates);
         if (updated) {
           toast({ title: 'Profile Updated', description: `${name} has been updated` });
           await reload();
@@ -224,10 +322,24 @@ const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
     }
   };
 
+  if (modeChanging) {
+    return (
+      <Dialog open={open} onOpenChange={() => {}}>
+        <DialogContent className="max-w-sm">
+          <div className="flex flex-col items-center justify-center py-8 space-y-4">
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            <p className="text-center text-muted-foreground">Updating profile mode...</p>
+            <Progress value={66} className="w-full" />
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-sm">
+        <DialogContent className="max-w-sm max-h-[90vh] overflow-y-auto">
           <DialogHeader className="flex flex-row items-center justify-between">
             <DialogTitle>{isEditMode ? 'Edit Profile' : 'Add Profile'}</DialogTitle>
             {isEditMode && profiles.length > 1 && (
@@ -265,7 +377,7 @@ const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
 
             {/* Name */}
             <div>
-              <Label htmlFor="name" className="text-sm font-medium mb-2 block">Name</Label>
+              <Label htmlFor="name" className="text-sm font-medium mb-2 block">Display Name</Label>
               <Input
                 id="name"
                 value={name}
@@ -397,6 +509,39 @@ const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
                 )}
               </div>
             )}
+
+            {/* Profile Mode - only for main profile in edit mode */}
+            {isEditMode && type === 'main' && (
+              <div>
+                <Label className="text-sm font-medium mb-2 block">Profile Mode</Label>
+                <div className="flex gap-2">
+                  {(['normal', 'pregnant', 'postpartum', 'childcare'] as const).map((m) => {
+                    const modeLabel = m === 'childcare' ? 'Child Care' : 
+                                     m === 'postpartum' ? 'Post Partum' : 
+                                     m.charAt(0).toUpperCase() + m.slice(1);
+                    const actualMode = m === 'postpartum' ? 'normal' : m;
+                    return (
+                      <button
+                        key={m}
+                        onClick={() => handleModeChange(actualMode as ProfileMode)}
+                        className={`flex-1 py-2 px-2 rounded-xl text-xs font-medium transition-all ${
+                          (mode === actualMode && (m !== 'postpartum' || mode === 'normal'))
+                            ? 'bg-primary text-primary-foreground'
+                            : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
+                        }`}
+                      >
+                        {modeLabel}
+                      </button>
+                    );
+                  })}
+                </div>
+                {mode === 'pregnant' && profile?.expectedDueDate && (
+                  <p className="text-xs text-primary mt-2">
+                    Expected due: {format(new Date(profile.expectedDueDate), 'PPP')}
+                  </p>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="flex gap-2">
@@ -414,6 +559,7 @@ const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
         </DialogContent>
       </Dialog>
 
+      {/* Delete Confirmation */}
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -436,6 +582,96 @@ const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Pregnancy Confirmation Dialog */}
+      <AlertDialog open={showPregnancyDialog} onOpenChange={setShowPregnancyDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Baby className="w-5 h-5 text-primary" />
+              Confirm Last Period
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Was {lastCycleStart ? format(new Date(lastCycleStart), 'PPP') : ''} the first day of your most recent period?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-col sm:flex-row gap-2">
+            <AlertDialogCancel onClick={() => setShowPregnancyDialog(false)}>
+              Cancel
+            </AlertDialogCancel>
+            <Button variant="outline" onClick={handleEnterDifferentDate}>
+              No, Enter Different Date
+            </Button>
+            <AlertDialogAction onClick={handleConfirmLastPeriod}>
+              Yes, That's Correct
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* LMP Input Dialog */}
+      <Dialog open={showLmpInputDialog} onOpenChange={setShowLmpInputDialog}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Baby className="w-5 h-5 text-primary" />
+              Enter Last Period Date
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <Label className="text-sm font-medium mb-2 block">
+              First day of your last menstrual period (LMP)
+            </Label>
+            <Popover open={lmpCalendarOpen} onOpenChange={setLmpCalendarOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="w-full justify-start text-left font-normal"
+                >
+                  <Calendar className="mr-2 h-4 w-4" />
+                  {lmpDate ? (
+                    format(lmpDate, 'PPP')
+                  ) : (
+                    <span className="text-muted-foreground">Select date</span>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <CalendarComponent
+                  mode="single"
+                  selected={lmpDate}
+                  onSelect={(date) => {
+                    setLmpDate(date);
+                    setLmpCalendarOpen(false);
+                  }}
+                  disabled={(date) => date > new Date() || date < subYears(new Date(), 1)}
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
+            {lmpDate && (
+              <p className="text-xs text-primary mt-2">
+                Expected due date: {format(addWeeks(lmpDate, 40), 'PPP')}
+              </p>
+            )}
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowLmpInputDialog(false);
+                setLmpDate(undefined);
+              }}
+              className="flex-1"
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleLmpSubmit} disabled={!lmpDate} className="flex-1">
+              Confirm
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 };
