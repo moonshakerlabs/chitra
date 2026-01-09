@@ -39,38 +39,67 @@ export const setStorageFolderPath = async (path: string): Promise<void> => {
 };
 
 /**
- * Create CHITRA folder in Documents directory
+ * Request filesystem permissions
  */
-export const createChitraFolder = async (): Promise<{ success: boolean; path?: string; error?: string }> => {
+export const requestFilePermissions = async (): Promise<boolean> => {
+  if (!isNativePlatform()) {
+    return true;
+  }
+  
+  try {
+    // Try to request permissions by attempting to read a directory
+    await Filesystem.checkPermissions();
+    const result = await Filesystem.requestPermissions();
+    return result.publicStorage === 'granted';
+  } catch (error) {
+    console.error('Error requesting permissions:', error);
+    return false;
+  }
+};
+
+/**
+ * Create CHITRA folder in a specific directory
+ */
+export const createChitraFolderInDirectory = async (
+  directory: Directory,
+  customPath?: string
+): Promise<{ success: boolean; path?: string; error?: string }> => {
   try {
     if (!isNativePlatform()) {
-      // For web, just return a virtual path
-      const virtualPath = '/CHITRA';
+      const virtualPath = customPath || '/CHITRA';
       await setStorageFolderPath(virtualPath);
       return { success: true, path: virtualPath };
     }
 
-    // Create CHITRA folder in Documents
-    const folderPath = CHITRA_FOLDER_NAME;
+    // Request permissions first
+    const hasPermission = await requestFilePermissions();
+    if (!hasPermission) {
+      return { 
+        success: false, 
+        error: 'Storage permission denied. Please grant permission in app settings.' 
+      };
+    }
+
+    const folderPath = customPath || CHITRA_FOLDER_NAME;
     
     try {
       await Filesystem.mkdir({
         path: folderPath,
-        directory: Directory.Documents,
+        directory: directory,
         recursive: true,
       });
     } catch (e) {
       // Folder might already exist, that's fine
     }
 
-    // Create marker file to identify this as a CHITRA folder
+    // Create marker file
     await Filesystem.writeFile({
       path: `${folderPath}/${CHITRA_MARKER_FILE}`,
       data: JSON.stringify({ 
         createdAt: new Date().toISOString(),
         version: '1.0.0' 
       }),
-      directory: Directory.Documents,
+      directory: directory,
       encoding: Encoding.UTF8,
     });
 
@@ -80,7 +109,7 @@ export const createChitraFolder = async (): Promise<{ success: boolean; path?: s
       try {
         await Filesystem.mkdir({
           path: `${folderPath}/${subfolder}`,
-          directory: Directory.Documents,
+          directory: directory,
           recursive: true,
         });
       } catch (e) {
@@ -88,17 +117,69 @@ export const createChitraFolder = async (): Promise<{ success: boolean; path?: s
       }
     }
 
-    const fullPath = `Documents/${folderPath}`;
+    const directoryName = directory === Directory.Documents ? 'Documents' : 
+                          directory === Directory.External ? 'External' : 
+                          directory === Directory.Data ? 'Data' : 'Storage';
+    const fullPath = `${directoryName}/${folderPath}`;
     await setStorageFolderPath(fullPath);
 
     return { success: true, path: fullPath };
   } catch (error) {
     console.error('Error creating CHITRA folder:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Failed to create folder';
+    
+    // Check for permission denied errors
+    if (errorMessage.toLowerCase().includes('permission')) {
+      return { 
+        success: false, 
+        error: 'Storage permission denied. Please grant permission in device settings.' 
+      };
+    }
+    
     return { 
       success: false, 
-      error: error instanceof Error ? error.message : 'Failed to create folder' 
+      error: errorMessage
     };
   }
+};
+
+/**
+ * Create CHITRA folder in Documents directory (default)
+ */
+export const createChitraFolder = async (): Promise<{ success: boolean; path?: string; error?: string }> => {
+  return createChitraFolderInDirectory(Directory.Documents);
+};
+
+/**
+ * Create CHITRA folder in External storage
+ */
+export const createChitraFolderExternal = async (): Promise<{ success: boolean; path?: string; error?: string }> => {
+  return createChitraFolderInDirectory(Directory.External);
+};
+
+/**
+ * Get available storage locations
+ */
+export const getAvailableStorageLocations = (): Array<{
+  id: string;
+  name: string;
+  directory: Directory;
+  description: string;
+}> => {
+  return [
+    {
+      id: 'documents',
+      name: 'Documents',
+      directory: Directory.Documents,
+      description: 'Private app documents folder'
+    },
+    {
+      id: 'external',
+      name: 'External Storage',
+      directory: Directory.External,
+      description: 'Accessible via file manager'
+    }
+  ];
 };
 
 /**
