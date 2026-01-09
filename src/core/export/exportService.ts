@@ -1,10 +1,15 @@
 import { exportAllData } from '../storage/database';
-import type { CycleEntry, WeightEntry, DailyCheckIn, PainLevel } from '../types';
+import type { CycleEntry, WeightEntry, DailyCheckIn, PainLevel, VaccinationEntry, MedicineSchedule, MedicineLog, FeedingSchedule, FeedingLog } from '../types';
 
 export interface ExportData {
   cycles: CycleEntry[];
   weights: WeightEntry[];
   checkIns: DailyCheckIn[];
+  vaccinations: VaccinationEntry[];
+  medicineSchedules: MedicineSchedule[];
+  medicineLogs: MedicineLog[];
+  feedingSchedules: FeedingSchedule[];
+  feedingLogs: FeedingLog[];
   exportedAt: string;
   version: string;
 }
@@ -19,6 +24,11 @@ export const exportToJSON = async (): Promise<void> => {
     cycles: data.cycles || [],
     weights: data.weights || [],
     checkIns: data.checkIns || [],
+    vaccinations: data.vaccinations || [],
+    medicineSchedules: data.medicineSchedules || [],
+    medicineLogs: data.medicineLogs || [],
+    feedingSchedules: data.feedingSchedules || [],
+    feedingLogs: data.feedingLogs || [],
     exportedAt: new Date().toISOString(),
     version: '1.0.0',
   };
@@ -28,7 +38,7 @@ export const exportToJSON = async (): Promise<void> => {
 };
 
 /**
- * Export all data to CSV format (separate files in a zip or individual downloads)
+ * Export all data to CSV format (separate files for each data type)
  */
 export const exportToCSV = async (): Promise<void> => {
   const data = await exportAllData();
@@ -52,6 +62,41 @@ export const exportToCSV = async (): Promise<void> => {
     const checkInCSV = convertCheckInsToCSV(data.checkIns);
     const blob = new Blob([checkInCSV], { type: 'text/csv' });
     downloadBlob(blob, `chitra-checkins-${formatDateForFile(new Date())}.csv`);
+  }
+
+  // Export vaccinations
+  if (data.vaccinations && data.vaccinations.length > 0) {
+    const vaccCSV = convertVaccinationsToCSV(data.vaccinations);
+    const blob = new Blob([vaccCSV], { type: 'text/csv' });
+    downloadBlob(blob, `chitra-vaccinations-${formatDateForFile(new Date())}.csv`);
+  }
+
+  // Export medicine schedules
+  if (data.medicineSchedules && data.medicineSchedules.length > 0) {
+    const medSchedCSV = convertMedicineSchedulesToCSV(data.medicineSchedules);
+    const blob = new Blob([medSchedCSV], { type: 'text/csv' });
+    downloadBlob(blob, `chitra-medicine-schedules-${formatDateForFile(new Date())}.csv`);
+  }
+
+  // Export medicine logs
+  if (data.medicineLogs && data.medicineLogs.length > 0) {
+    const medLogCSV = convertMedicineLogsToCSV(data.medicineLogs);
+    const blob = new Blob([medLogCSV], { type: 'text/csv' });
+    downloadBlob(blob, `chitra-medicine-logs-${formatDateForFile(new Date())}.csv`);
+  }
+
+  // Export feeding schedules
+  if (data.feedingSchedules && data.feedingSchedules.length > 0) {
+    const feedSchedCSV = convertFeedingSchedulesToCSV(data.feedingSchedules);
+    const blob = new Blob([feedSchedCSV], { type: 'text/csv' });
+    downloadBlob(blob, `chitra-feeding-schedules-${formatDateForFile(new Date())}.csv`);
+  }
+
+  // Export feeding logs
+  if (data.feedingLogs && data.feedingLogs.length > 0) {
+    const feedLogCSV = convertFeedingLogsToCSV(data.feedingLogs);
+    const blob = new Blob([feedLogCSV], { type: 'text/csv' });
+    downloadBlob(blob, `chitra-feeding-logs-${formatDateForFile(new Date())}.csv`);
   }
 };
 
@@ -269,6 +314,92 @@ const escapeCSV = (value: string): string => {
     return `"${value.replace(/"/g, '""')}"`;
   }
   return value;
+};
+
+const convertVaccinationsToCSV = (vaccinations: VaccinationEntry[]): string => {
+  const headers = ['id', 'profileId', 'vaccineName', 'dateAdministered', 'hospitalName', 'doctorName', 'nextDueDate', 'notes', 'createdAt', 'updatedAt'];
+  const rows = vaccinations.map(v => [
+    v.id,
+    v.profileId,
+    v.vaccineName,
+    v.dateAdministered,
+    v.hospitalName || '',
+    v.doctorName || '',
+    v.nextDueDate || '',
+    v.notes || '',
+    v.createdAt,
+    v.updatedAt,
+  ].map(escapeCSV));
+  
+  return [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+};
+
+const convertMedicineSchedulesToCSV = (schedules: MedicineSchedule[]): string => {
+  const headers = ['id', 'profileId', 'medicineName', 'timesPerDay', 'intervalHours', 'totalDays', 'startDate', 'isActive', 'isPaused', 'remindersSent', 'createdAt', 'updatedAt'];
+  const rows = schedules.map(s => [
+    s.id,
+    s.profileId,
+    s.medicineName,
+    s.timesPerDay.toString(),
+    s.intervalHours.toString(),
+    s.totalDays?.toString() || '',
+    s.startDate,
+    s.isActive.toString(),
+    s.isPaused.toString(),
+    s.remindersSent.toString(),
+    s.createdAt,
+    s.updatedAt,
+  ].map(escapeCSV));
+  
+  return [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+};
+
+const convertMedicineLogsToCSV = (logs: MedicineLog[]): string => {
+  const headers = ['id', 'scheduleId', 'profileId', 'takenAt', 'snoozedAt', 'snoozeUntil', 'status', 'createdAt'];
+  const rows = logs.map(l => [
+    l.id,
+    l.scheduleId,
+    l.profileId,
+    l.takenAt || '',
+    l.snoozedAt || '',
+    l.snoozeUntil || '',
+    l.status,
+    l.createdAt,
+  ].map(escapeCSV));
+  
+  return [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+};
+
+const convertFeedingSchedulesToCSV = (schedules: FeedingSchedule[]): string => {
+  const headers = ['id', 'profileId', 'feedingName', 'reminderType', 'reminderTime', 'intervalHours', 'isActive', 'createdAt', 'updatedAt'];
+  const rows = schedules.map(s => [
+    s.id,
+    s.profileId,
+    s.feedingName,
+    s.reminderType,
+    s.reminderTime || '',
+    s.intervalHours?.toString() || '',
+    s.isActive.toString(),
+    s.createdAt,
+    s.updatedAt,
+  ].map(escapeCSV));
+  
+  return [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+};
+
+const convertFeedingLogsToCSV = (logs: FeedingLog[]): string => {
+  const headers = ['id', 'scheduleId', 'profileId', 'completedAt', 'snoozed', 'snoozeUntil', 'createdAt'];
+  const rows = logs.map(l => [
+    l.id,
+    l.scheduleId,
+    l.profileId,
+    l.completedAt,
+    l.snoozed.toString(),
+    l.snoozeUntil || '',
+    l.createdAt,
+  ].map(escapeCSV));
+  
+  return [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
 };
 
 const parseCSV = (content: string): string[][] => {

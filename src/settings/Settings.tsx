@@ -134,11 +134,12 @@ const Settings = () => {
   const handleChangeFolder = async () => {
     setShowChangeFolderDialog(false);
     await clearStorageFolderConfig();
-    await clearAllData();
+    // Only change folder path, don't delete app data
     toast({
       title: 'Folder Changed',
-      description: 'App data has been reset. Please restart the app.',
+      description: 'Please select a new storage folder for exports and attachments.',
     });
+    // Navigate to folder selection
     window.location.reload();
   };
 

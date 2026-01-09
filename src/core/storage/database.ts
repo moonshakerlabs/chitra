@@ -81,7 +81,7 @@ interface ChitraDB extends DBSchema {
 }
 
 const DB_NAME = 'chitra-db';
-const DB_VERSION = 3;
+const DB_VERSION = 4;
 
 let dbInstance: IDBPDatabase<ChitraDB> | null = null;
 
@@ -286,6 +286,11 @@ export const exportAllData = async () => {
     cycles: await db.getAll('cycles'),
     weights: await db.getAll('weights'),
     checkIns: await db.getAll('checkIns'),
+    vaccinations: await db.getAll('vaccinations'),
+    medicineSchedules: await db.getAll('medicineSchedules'),
+    medicineLogs: await db.getAll('medicineLogs'),
+    feedingSchedules: await db.getAll('feedingSchedules'),
+    feedingLogs: await db.getAll('feedingLogs'),
     preferences: await db.get('preferences', 'user'),
     carePoints: await db.get('carePoints', 'user'),
     payment: await db.get('payment', 'user'),

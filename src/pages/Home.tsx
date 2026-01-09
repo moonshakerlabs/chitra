@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Heart, Droplets, Weight, Smile, TrendingUp, Baby, Calendar } from 'lucide-react';
+import { Heart, Droplets, Weight, Smile, TrendingUp, Baby, Calendar, Syringe, Pill } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
@@ -81,24 +81,44 @@ const Home = () => {
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1 }}
-        className="grid grid-cols-2 gap-4"
+        className="space-y-3"
       >
-        <Button
-          variant="outline"
-          className="h-24 flex-col gap-2 rounded-2xl border-2 hover:border-primary hover:bg-primary/5"
-          onClick={() => navigate('/cycle')}
-        >
-          <Droplets className="w-8 h-8 text-primary" />
-          <span className="text-sm font-medium">Log Cycle</span>
-        </Button>
-        <Button
-          variant="outline"
-          className="h-24 flex-col gap-2 rounded-2xl border-2 hover:border-primary hover:bg-primary/5"
-          onClick={() => navigate('/weight')}
-        >
-          <Weight className="w-8 h-8 text-primary" />
-          <span className="text-sm font-medium">Log Weight</span>
-        </Button>
+        <div className="grid grid-cols-2 gap-3">
+          <Button
+            variant="outline"
+            className="h-20 flex-col gap-2 rounded-2xl border-2 hover:border-primary hover:bg-primary/5"
+            onClick={() => navigate('/cycle')}
+          >
+            <Droplets className="w-6 h-6 text-primary" />
+            <span className="text-xs font-medium">Log Cycle</span>
+          </Button>
+          <Button
+            variant="outline"
+            className="h-20 flex-col gap-2 rounded-2xl border-2 hover:border-primary hover:bg-primary/5"
+            onClick={() => navigate('/weight')}
+          >
+            <Weight className="w-6 h-6 text-primary" />
+            <span className="text-xs font-medium">Log Weight</span>
+          </Button>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <Button
+            variant="outline"
+            className="h-20 flex-col gap-2 rounded-2xl border-2 hover:border-primary hover:bg-primary/5"
+            onClick={() => navigate('/vaccination')}
+          >
+            <Syringe className="w-6 h-6 text-primary" />
+            <span className="text-xs font-medium">Log Vaccination</span>
+          </Button>
+          <Button
+            variant="outline"
+            className="h-20 flex-col gap-2 rounded-2xl border-2 hover:border-primary hover:bg-primary/5"
+            onClick={() => navigate('/medicine')}
+          >
+            <Pill className="w-6 h-6 text-primary" />
+            <span className="text-xs font-medium">Log Medicine</span>
+          </Button>
+        </div>
       </motion.div>
 
       {/* Cycle Status Card - Hidden in childcare mode */}
