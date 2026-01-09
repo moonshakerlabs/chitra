@@ -39,7 +39,8 @@ import { exportDataMobile, isNativePlatform } from '@/core/export/mobileExport';
 import { importFromJSON, importFromCSV } from '@/core/export';
 import { useProfile } from '@/core/context/ProfileContext';
 import { getStorageFolderPath, clearStorageFolderConfig, createChitraFolder } from '@/core/storage/folderService';
-import type { UserPreferences, ThemeMode, ColorTheme, CountryCode, LanguageCode, ExportDataType, ExportFormat, ProfileMode } from '@/core/types';
+import type { UserPreferences, ThemeMode, ColorTheme, CountryCode, LanguageCode, ExportFormat, ProfileMode } from '@/core/types';
+import type { ExportDataTypeExtended } from '@/core/export/mobileExport';
 import { updateProfile } from '@/core/storage/profileService';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -102,7 +103,7 @@ const Settings = () => {
   const [showChangeFolderDialog, setShowChangeFolderDialog] = useState(false);
   const [pinEnabled, setPinEnabled] = useState(false);
   const [storageFolderPath, setStorageFolderPath] = useState<string | null>(null);
-  const [exportDataType, setExportDataType] = useState<ExportDataType>('both');
+  const [exportDataType, setExportDataType] = useState<ExportDataTypeExtended>('all');
   const [exportFormat, setExportFormat] = useState<ExportFormat>('json');
   const [exportProfileOption, setExportProfileOption] = useState<'current' | 'all'>('current');
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -841,18 +842,24 @@ const Settings = () => {
             {/* Data Type Selection */}
             <div>
               <p className="text-sm font-medium mb-2">What to export?</p>
-              <div className="grid grid-cols-3 gap-2">
-                {(['cycles', 'weights', 'both'] as ExportDataType[]).map((type) => (
+              <div className="grid grid-cols-2 gap-2">
+                {([
+                  { value: 'all', label: 'All Data' },
+                  { value: 'cycles', label: 'Cycles' },
+                  { value: 'weights', label: 'Weights' },
+                  { value: 'vaccinations', label: 'Vaccinations' },
+                  { value: 'medicine', label: 'Medicine' },
+                ] as { value: ExportDataTypeExtended; label: string }[]).map((type) => (
                   <button
-                    key={type}
-                    onClick={() => setExportDataType(type)}
-                    className={`p-2 rounded-xl text-sm font-medium capitalize transition-all ${
-                      exportDataType === type
+                    key={type.value}
+                    onClick={() => setExportDataType(type.value)}
+                    className={`p-2 rounded-xl text-sm font-medium transition-all ${
+                      exportDataType === type.value
                         ? 'bg-primary text-primary-foreground'
                         : 'bg-secondary hover:bg-secondary/80'
                     }`}
                   >
-                    {type}
+                    {type.label}
                   </button>
                 ))}
               </div>
