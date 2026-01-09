@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useProfile } from '@/core/context/ProfileContext';
-import type { VaccinationEntry } from '@/core/types';
+import type { VaccinationEntry, AttachmentType } from '@/core/types';
 import {
   getAllVaccinations,
   addVaccination,
@@ -34,15 +34,25 @@ export const useVaccinations = () => {
     vaccineName: string,
     dateAdministered: string,
     notes?: string,
-    attachmentPath?: string
-  ) => {
-    if (!activeProfile) return null;
+    attachmentPath?: string,
+    attachmentType?: AttachmentType,
+    hospitalName?: string,
+    doctorName?: string,
+    nextDueDate?: string,
+    reminderEnabled?: boolean
+  ): Promise<VaccinationEntry | undefined> => {
+    if (!activeProfile) return undefined;
     const entry = await addVaccination(
       activeProfile.id,
       vaccineName,
       dateAdministered,
       notes,
-      attachmentPath
+      attachmentPath,
+      attachmentType,
+      hospitalName,
+      doctorName,
+      nextDueDate,
+      reminderEnabled
     );
     await loadVaccinations();
     return entry;

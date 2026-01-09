@@ -1,6 +1,6 @@
 import { getDatabase } from '@/core/storage/database';
 import { generateId } from '@/core/utils/helpers';
-import type { VaccinationEntry } from '@/core/types';
+import type { VaccinationEntry, AttachmentType } from '@/core/types';
 
 /**
  * Get all vaccinations for a profile
@@ -29,7 +29,12 @@ export const addVaccination = async (
   vaccineName: string,
   dateAdministered: string,
   notes?: string,
-  attachmentPath?: string
+  attachmentPath?: string,
+  attachmentType?: AttachmentType,
+  hospitalName?: string,
+  doctorName?: string,
+  nextDueDate?: string,
+  reminderEnabled?: boolean
 ): Promise<VaccinationEntry> => {
   const db = await getDatabase();
   const now = new Date().toISOString();
@@ -41,6 +46,11 @@ export const addVaccination = async (
     dateAdministered,
     notes,
     attachmentPath,
+    attachmentType,
+    hospitalName,
+    doctorName,
+    nextDueDate,
+    reminderEnabled,
     createdAt: now,
     updatedAt: now,
   };
@@ -88,5 +98,38 @@ export const deleteVaccination = async (id: string): Promise<boolean> => {
  * Remove attachment from vaccination (keeps the record)
  */
 export const removeVaccinationAttachment = async (id: string): Promise<VaccinationEntry | null> => {
-  return updateVaccination(id, { attachmentPath: undefined });
+  return updateVaccination(id, { attachmentPath: undefined, attachmentType: undefined });
+};
+
+/**
+ * Auto-log vaccination from reminder (when user clicks "Yes")
+ */
+export const autoLogVaccinationFromReminder = async (
+  originalVaccination: VaccinationEntry
+): Promise<VaccinationEntry> => {
+  const db = await getDatabase();
+  const now = new Date().toISOString();
+  const today = new Date().toISOString().split('T')[0];
+
+  const entry: VaccinationEntry = {
+    id: generateId(),
+    profileId: originalVaccination.profileId,
+    vaccineName: originalVaccination.vaccineName,
+    dateAdministered: today,
+    hospitalName: originalVaccination.hospitalName,
+    doctorName: originalVaccination.doctorName,
+    notes: `Auto-logged from reminder`,
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  await db.put('vaccinations', entry);
+  
+  // Clear the next due date from the original vaccination
+  await updateVaccination(originalVaccination.id, { 
+    nextDueDate: undefined, 
+    reminderEnabled: false 
+  });
+
+  return entry;
 };

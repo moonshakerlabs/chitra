@@ -42,6 +42,16 @@ const CycleLogModal = ({ open, onClose, onComplete }: CycleLogModalProps) => {
   const [saving, setSaving] = useState(false);
   const { activeProfile } = useProfile();
 
+  // Auto-set end date to 3 days from start date
+  const handleStartDateChange = (value: string) => {
+    setStartDate(value);
+    if (value) {
+      const start = new Date(value);
+      start.setDate(start.getDate() + 3);
+      setEndDate(format(start, 'yyyy-MM-dd'));
+    }
+  };
+
   const handleSave = async () => {
     if (!activeProfile) return;
     setSaving(true);
@@ -113,7 +123,7 @@ const CycleLogModal = ({ open, onClose, onComplete }: CycleLogModalProps) => {
                       id="startDate"
                       type="date"
                       value={startDate}
-                      onChange={(e) => setStartDate(e.target.value)}
+                      onChange={(e) => handleStartDateChange(e.target.value)}
                       className="pl-10"
                     />
                   </div>
