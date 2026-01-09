@@ -484,8 +484,48 @@ const Settings = () => {
         </Card>
       </motion.div>
 
+      {/* Notifications Section */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.08 }}
+      >
+        <h2 className="text-sm font-medium text-muted-foreground mb-3 uppercase tracking-wide">Notifications</h2>
+        <Card className="divide-y divide-border">
+          <div className="flex items-center justify-between p-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-secondary flex items-center justify-center">
+                <Heart className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <p className="font-medium text-foreground">Vaccination Reminders</p>
+                <p className="text-sm text-muted-foreground">Due date notifications</p>
+              </div>
+            </div>
+            <Switch
+              checked={preferences?.vaccinationRemindersEnabled ?? true}
+              onCheckedChange={(checked) => updatePreference('vaccinationRemindersEnabled', checked)}
+            />
+          </div>
+          <div className="flex items-center justify-between p-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-secondary flex items-center justify-center">
+                <Heart className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <p className="font-medium text-foreground">Medicine Reminders</p>
+                <p className="text-sm text-muted-foreground">Intake notifications</p>
+              </div>
+            </div>
+            <Switch
+              checked={preferences?.medicineRemindersEnabled ?? true}
+              onCheckedChange={(checked) => updatePreference('medicineRemindersEnabled', checked)}
+            />
+          </div>
+        </Card>
+      </motion.div>
 
-      {/* General Settings */}
+
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}

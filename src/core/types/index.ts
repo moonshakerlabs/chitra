@@ -3,17 +3,24 @@
 // ============ Profile Types ============
 export type ProfileType = 'main' | 'dependent';
 
+export type ProfileMode = 'normal' | 'pregnant' | 'childcare';
+
 export interface Profile {
   id: string;
   name: string;
   type: ProfileType; // 'main' for 18+, 'dependent' for under 18
   avatar: string; // emoji identifier
   dateOfBirth?: string; // ISO date string - required for dependents
+  mode?: ProfileMode; // normal, pregnant, or childcare
+  pregnancyStartDate?: string; // when pregnancy mode was enabled
+  expectedDueDate?: string; // expected delivery date
   createdAt: string;
   updatedAt: string;
 }
 
 // ============ Vaccination Types ============
+export type AttachmentType = 'image' | 'pdf';
+
 export interface VaccinationEntry {
   id: string;
   profileId: string;
@@ -21,6 +28,11 @@ export interface VaccinationEntry {
   dateAdministered: string;
   notes?: string;
   attachmentPath?: string; // Path in CHITRA folder
+  attachmentType?: AttachmentType; // image or pdf
+  hospitalName?: string;
+  doctorName?: string;
+  nextDueDate?: string; // for next dose reminder
+  reminderEnabled?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -155,6 +167,10 @@ export interface UserPreferences {
   activeProfileId?: string; // Currently selected profile
   storageFolderPath?: string; // CHITRA folder path for exports/attachments
   storageFolderAcknowledged: boolean; // User acknowledged data warning
+  // Notification preferences
+  vaccinationRemindersEnabled?: boolean;
+  medicineRemindersEnabled?: boolean;
+  feedingRemindersEnabled?: boolean;
   createdAt: string;
   updatedAt: string;
 }

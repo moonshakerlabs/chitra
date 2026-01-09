@@ -12,6 +12,9 @@ const defaultPreferences: UserPreferences = {
   onboardingCompleted: false,
   privacyAccepted: false,
   storageFolderAcknowledged: false,
+  vaccinationRemindersEnabled: true,
+  medicineRemindersEnabled: true,
+  feedingRemindersEnabled: true,
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
 };
