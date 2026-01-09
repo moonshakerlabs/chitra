@@ -30,6 +30,7 @@ import {
   getPreferences, 
   savePreferences, 
   clearAllData,
+  clearAllDataIncludingPreferences,
   resetPreferences,
   isPinEnabled,
   disablePin
@@ -329,7 +330,7 @@ const Settings = () => {
   };
 
   const handleResetApp = async () => {
-    await clearAllData();
+    await clearAllDataIncludingPreferences();
     await resetPreferences();
     toast({
       title: "App Reset",
@@ -385,30 +386,6 @@ const Settings = () => {
         <p className="text-muted-foreground text-sm mt-1">Customize your experience</p>
       </div>
 
-      {/* Profiles Section */}
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-      >
-        <h2 className="text-sm font-medium text-muted-foreground mb-3 uppercase tracking-wide">Profiles</h2>
-        <Card className="divide-y divide-border">
-          <button 
-            onClick={() => setShowProfileDialog(true)}
-            className="flex items-center justify-between p-4 w-full text-left hover:bg-secondary/50 transition-colors"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-secondary flex items-center justify-center">
-                <Users className="w-5 h-5 text-primary" />
-              </div>
-              <div>
-                <p className="font-medium text-foreground">Manage Profiles</p>
-                <p className="text-sm text-muted-foreground">{profiles.length} profile{profiles.length !== 1 ? 's' : ''}</p>
-              </div>
-            </div>
-            <ChevronRight className="w-5 h-5 text-muted-foreground" />
-          </button>
-        </Card>
-      </motion.div>
 
 
       {/* Security Section */}

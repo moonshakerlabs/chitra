@@ -1,4 +1,4 @@
-export { getDatabase, closeDatabase, clearAllData, exportAllData } from './database';
+export { getDatabase, closeDatabase, clearAllData, clearAllDataIncludingPreferences, exportAllData } from './database';
 export { 
   getPreferences, 
   savePreferences, 

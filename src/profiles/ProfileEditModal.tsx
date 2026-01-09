@@ -148,6 +148,21 @@ const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
       } else {
         setShowLmpInputDialog(true);
       }
+    } else if (newMode === 'postpartum' && profile) {
+      // Switch to postpartum mode
+      setModeChanging(true);
+      await updateProfile(profile.id, {
+        mode: 'postpartum',
+        pregnancyStartDate: undefined,
+        expectedDueDate: undefined,
+      });
+      toast({
+        title: 'Post Partum Mode Enabled',
+        description: 'You can track your recovery and log your first period after childbirth.',
+      });
+      await reload();
+      setModeChanging(false);
+      onOpenChange(false);
     } else {
       setMode(newMode);
     }
@@ -514,18 +529,17 @@ const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
             {isEditMode && type === 'main' && (
               <div>
                 <Label className="text-sm font-medium mb-2 block">Profile Mode</Label>
-                <div className="flex gap-2">
+                <div className="grid grid-cols-2 gap-2">
                   {(['normal', 'pregnant', 'postpartum', 'childcare'] as const).map((m) => {
                     const modeLabel = m === 'childcare' ? 'Child Care' : 
                                      m === 'postpartum' ? 'Post Partum' : 
                                      m.charAt(0).toUpperCase() + m.slice(1);
-                    const actualMode = m === 'postpartum' ? 'normal' : m;
                     return (
                       <button
                         key={m}
-                        onClick={() => handleModeChange(actualMode as ProfileMode)}
-                        className={`flex-1 py-2 px-2 rounded-xl text-xs font-medium transition-all ${
-                          (mode === actualMode && (m !== 'postpartum' || mode === 'normal'))
+                        onClick={() => handleModeChange(m as ProfileMode)}
+                        className={`py-2 px-2 rounded-xl text-xs font-medium transition-all ${
+                          mode === m
                             ? 'bg-primary text-primary-foreground'
                             : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
                         }`}
