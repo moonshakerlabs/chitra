@@ -10,6 +10,7 @@ import { CycleTracker } from "./modules/cycle";
 import { WeightTracker } from "./modules/weight";
 import { VaccinationTracker } from "./modules/vaccination";
 import { MedicineTracker } from "./modules/medicine";
+import { FeedingTracker } from "./modules/feeding";
 import Settings from "./settings/Settings";
 import BottomNav from "./shared/components/BottomNav";
 import AppHeader from "./shared/components/AppHeader";
@@ -17,6 +18,16 @@ import NotFound from "./pages/NotFound";
 import { isOnboardingCompleted, getPreferences, isPinEnabled } from "./core/storage";
 import { ProfileProvider } from "./core/context/ProfileContext";
 import { PinLockScreen } from "./security";
+import { 
+  initializeNotifications, 
+  registerNotificationActions,
+  addNotificationActionListener,
+  scheduleVaccinationFollowUp,
+  scheduleMedicineFollowUp,
+} from "./core/notifications";
+import { addVaccination } from "./modules/vaccination/vaccinationService";
+import { markMedicineTaken, snoozeMedicineReminder } from "./modules/medicine/medicineService";
+import { createFeedingLog, snoozeFeedingReminder } from "./modules/feeding/feedingService";
 import type { ThemeMode } from "./core/types";
 
 const queryClient = new QueryClient();
@@ -29,7 +40,59 @@ const AppContent = () => {
   useEffect(() => {
     checkOnboarding();
     applyTheme();
+    setupNotifications();
   }, []);
+
+  const setupNotifications = async () => {
+    const granted = await initializeNotifications();
+    if (granted) {
+      await registerNotificationActions();
+      
+      // Handle notification actions
+      addNotificationActionListener(async (action) => {
+        const { actionId, notification } = action;
+        const extra = notification.extra || {};
+        
+        if (extra.type === 'vaccination' || extra.type === 'vaccination_followup') {
+          if (actionId === 'yes') {
+            // Auto-log vaccination
+            await addVaccination(
+              extra.profileId || 'default-profile',
+              extra.vaccineName,
+              new Date().toISOString().split('T')[0],
+              undefined, // notes
+              undefined, // attachmentPath
+              undefined, // attachmentType
+              extra.hospitalName,
+              extra.doctorName
+            );
+          } else if (actionId === 'snooze') {
+            // Snooze for 6 hours
+            await scheduleVaccinationFollowUp(
+              extra.vaccinationId,
+              extra.vaccineName,
+              6,
+              extra.hospitalName,
+              extra.doctorName
+            );
+          }
+        } else if (extra.type === 'medicine' || extra.type === 'medicine_followup') {
+          if (actionId === 'taken') {
+            await markMedicineTaken(extra.logId);
+          } else if (actionId === 'snooze_10' || actionId === 'snooze_30') {
+            const minutes = actionId === 'snooze_10' ? 10 : 30;
+            await snoozeMedicineReminder(extra.logId, minutes);
+          }
+        } else if (extra.type === 'feeding' || extra.type === 'feeding_followup') {
+          if (actionId === 'done') {
+            await createFeedingLog(extra.scheduleId, extra.profileId);
+          } else if (actionId === 'snooze') {
+            await snoozeFeedingReminder(extra.scheduleId, extra.profileId, 30);
+          }
+        }
+      });
+    }
+  };
 
   // Lock app when it goes to background
   useEffect(() => {
@@ -110,6 +173,7 @@ const AppContent = () => {
             <Route path="/weight" element={<WeightTracker />} />
             <Route path="/vaccination" element={<VaccinationTracker />} />
             <Route path="/medicine" element={<MedicineTracker />} />
+            <Route path="/feeding" element={<FeedingTracker />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="*" element={<NotFound />} />
           </Routes>

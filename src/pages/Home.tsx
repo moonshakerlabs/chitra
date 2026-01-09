@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Heart, Droplets, Weight, Smile, TrendingUp, Settings } from 'lucide-react';
+import { Heart, Droplets, Weight, Smile, TrendingUp, Baby, Calendar } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
@@ -8,19 +8,45 @@ import { useLatestCycle, useCycleInsights } from '@/modules/cycle';
 import { useLatestWeight, useWeightTrend } from '@/modules/weight';
 import { useProfile } from '@/core/context/ProfileContext';
 import { getGreeting } from '@/core/utils/helpers';
-import { formatDate, getRelativeDay } from '@/core/utils/dateUtils';
+import { formatDate, getRelativeDay, daysBetween } from '@/core/utils/dateUtils';
 import { formatWeight } from '@/core/utils/helpers';
+import { updateProfile } from '@/core/storage/profileService';
 import ProfileSelector from '@/shared/components/ProfileSelector';
 import ProfileEditModal from '@/profiles/ProfileEditModal';
+import { useToast } from '@/hooks/use-toast';
 
 const Home = () => {
   const navigate = useNavigate();
-  const { activeProfile } = useProfile();
+  const { activeProfile, reload } = useProfile();
   const { cycle, isOngoing } = useLatestCycle();
   const { insights } = useCycleInsights();
   const { weight: latestWeight } = useLatestWeight();
   const { trend: weightTrend } = useWeightTrend(30);
   const [showAddProfile, setShowAddProfile] = useState(false);
+  const { toast } = useToast();
+
+  const isPregnantMode = activeProfile?.mode === 'pregnant';
+  const isChildcareMode = activeProfile?.mode === 'childcare';
+
+  const handleSwitchToNormal = async () => {
+    if (!activeProfile) return;
+    await updateProfile(activeProfile.id, { 
+      mode: 'normal', 
+      pregnancyStartDate: undefined, 
+      expectedDueDate: undefined 
+    });
+    toast({
+      title: 'Mode Updated',
+      description: 'Switched to normal mode. You can now track your cycles.',
+    });
+    reload();
+  };
+
+  const getPregnancyWeeks = (): number | null => {
+    if (!activeProfile?.pregnancyStartDate) return null;
+    const days = daysBetween(activeProfile.pregnancyStartDate, new Date().toISOString().split('T')[0]);
+    return Math.floor(days / 7);
+  };
 
   return (
     <div className="px-4 py-6 space-y-6 pb-24">
@@ -75,50 +101,112 @@ const Home = () => {
         </Button>
       </motion.div>
 
-      {/* Cycle Status Card */}
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.2 }}
-      >
-        <Card 
-          className="overflow-hidden cursor-pointer hover:shadow-md transition-shadow"
-          onClick={() => navigate('/cycle')}
+      {/* Cycle Status Card - Hidden in childcare mode */}
+      {!isChildcareMode && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
         >
-          <div className="gradient-primary p-5">
-            <div className="flex items-center gap-3 text-primary-foreground">
-              <Droplets className="w-5 h-5" />
-              <span className="font-medium">Cycle Status</span>
-            </div>
-          </div>
-          <CardContent className="p-4">
-            {isOngoing ? (
-              <div>
-                <p className="text-lg font-semibold text-foreground">Period Active</p>
-                <p className="text-sm text-muted-foreground">
-                  Started {cycle?.startDate && getRelativeDay(cycle.startDate)}
-                </p>
-              </div>
-            ) : cycle ? (
-              <div>
-                <p className="text-lg font-semibold text-foreground">Not on Period</p>
-                {insights?.nextPredictedStart && (
-                  <p className="text-sm text-muted-foreground">
-                    Next expected: {getRelativeDay(insights.nextPredictedStart)} *
-                  </p>
+          <Card 
+            className="overflow-hidden cursor-pointer hover:shadow-md transition-shadow"
+            onClick={() => !isPregnantMode && navigate('/cycle')}
+          >
+            <div className="gradient-primary p-5">
+              <div className="flex items-center gap-3 text-primary-foreground">
+                {isPregnantMode ? (
+                  <Baby className="w-5 h-5" />
+                ) : (
+                  <Droplets className="w-5 h-5" />
                 )}
+                <span className="font-medium">
+                  {isPregnantMode ? 'Pregnancy Mode' : 'Cycle Status'}
+                </span>
               </div>
-            ) : (
-              <div>
-                <p className="text-lg font-semibold text-foreground">Start Tracking</p>
-                <p className="text-sm text-muted-foreground">
-                  Log your first cycle to get insights
-                </p>
+            </div>
+            <CardContent className="p-4">
+              {isPregnantMode ? (
+                <div className="space-y-3">
+                  <div>
+                    <p className="text-lg font-semibold text-foreground">Pregnancy Active</p>
+                    {getPregnancyWeeks() !== null && (
+                      <p className="text-sm text-muted-foreground">
+                        Week {getPregnancyWeeks()} of pregnancy
+                      </p>
+                    )}
+                    {activeProfile?.expectedDueDate && (
+                      <p className="text-sm text-primary mt-1">
+                        Expected: {formatDate(activeProfile.expectedDueDate)}
+                      </p>
+                    )}
+                  </div>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="w-full"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleSwitchToNormal();
+                    }}
+                  >
+                    First period after pregnancy? Switch to Normal
+                  </Button>
+                </div>
+              ) : isOngoing ? (
+                <div>
+                  <p className="text-lg font-semibold text-foreground">Period Active</p>
+                  <p className="text-sm text-muted-foreground">
+                    Started {cycle?.startDate && getRelativeDay(cycle.startDate)}
+                  </p>
+                </div>
+              ) : cycle ? (
+                <div>
+                  <p className="text-lg font-semibold text-foreground">Not on Period</p>
+                  {insights?.nextPredictedStart && (
+                    <p className="text-sm text-muted-foreground">
+                      Next expected: {getRelativeDay(insights.nextPredictedStart)} *
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <div>
+                  <p className="text-lg font-semibold text-foreground">Start Tracking</p>
+                  <p className="text-sm text-muted-foreground">
+                    Log your first cycle to get insights
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </motion.div>
+      )}
+
+      {/* Childcare Quick Access */}
+      {isChildcareMode && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+        >
+          <Card 
+            className="overflow-hidden cursor-pointer hover:shadow-md transition-shadow"
+            onClick={() => navigate('/feeding')}
+          >
+            <div className="gradient-primary p-5">
+              <div className="flex items-center gap-3 text-primary-foreground">
+                <Baby className="w-5 h-5" />
+                <span className="font-medium">Child Care Mode</span>
               </div>
-            )}
-          </CardContent>
-        </Card>
-      </motion.div>
+            </div>
+            <CardContent className="p-4">
+              <p className="text-lg font-semibold text-foreground">Feeding & Care Tracking</p>
+              <p className="text-sm text-muted-foreground">
+                Manage feeding schedules, vaccinations, and medicines
+              </p>
+            </CardContent>
+          </Card>
+        </motion.div>
+      )}
 
       {/* Weight Card */}
       <motion.div
