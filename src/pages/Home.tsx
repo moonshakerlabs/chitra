@@ -29,6 +29,7 @@ const Home = () => {
   const { toast } = useToast();
 
   const isPregnantMode = activeProfile?.mode === 'pregnant';
+  const isPostpartumMode = activeProfile?.mode === 'postpartum';
   const isChildcareMode = activeProfile?.mode === 'childcare';
 
   // Check if cycle tracking should be hidden for this profile
@@ -38,27 +39,44 @@ const Home = () => {
     // Hide for male profiles
     if (activeProfile.gender === 'male') return true;
     
-    // Hide for female profiles under 8 years old
-    if (activeProfile.dateOfBirth) {
+    // For main profiles (adults), show cycle unless they are in childcare mode
+    if (activeProfile.type === 'main') return false;
+    
+    // For female dependents, check age (show if 10 or above)
+    if (activeProfile.dateOfBirth && activeProfile.gender === 'female') {
       const age = differenceInYears(new Date(), new Date(activeProfile.dateOfBirth));
-      if (age < 8) return true;
+      if (age < 10) return true;
     }
     
     return false;
   };
 
-  const handleSwitchToNormal = async () => {
+  const handleSwitchToPostpartum = async () => {
     if (!activeProfile) return;
     await updateProfile(activeProfile.id, { 
-      mode: 'normal', 
+      mode: 'postpartum', 
       pregnancyStartDate: undefined, 
       expectedDueDate: undefined 
     });
     toast({
       title: 'Mode Updated',
-      description: 'Switched to normal mode. You can now track your cycles.',
+      description: 'Switched to post partum mode.',
     });
     reload();
+  };
+
+  const handleFirstPeriodAfterBirth = () => {
+    // Navigate to cycle tracker to log first period
+    navigate('/cycle');
+    toast({
+      title: 'Log First Period',
+      description: 'Log your first period after childbirth. Your mode will switch to normal.',
+    });
+    // Switch to normal mode
+    if (activeProfile) {
+      updateProfile(activeProfile.id, { mode: 'normal' });
+      reload();
+    }
   };
 
   const getPregnancyWeeks = (): number | null => {
@@ -78,9 +96,8 @@ const Home = () => {
         className="flex items-center justify-between"
       >
         <div>
-          <p className="text-muted-foreground">{getGreeting()}</p>
           <h1 className="text-2xl font-bold text-foreground">
-            {activeProfile ? `Hi, ${activeProfile.name}` : 'CHITRA Welcomes You'}
+            {activeProfile ? `${getGreeting()}, ${activeProfile.name}` : 'CHITRA Welcomes You'}
           </h1>
         </div>
         <div className="w-12 h-12 rounded-full bg-primary flex items-center justify-center">
@@ -169,17 +186,17 @@ const Home = () => {
         >
           <Card 
             className="overflow-hidden cursor-pointer hover:shadow-md transition-shadow"
-            onClick={() => !isPregnantMode && navigate('/cycle')}
+            onClick={() => !isPregnantMode && !isPostpartumMode && navigate('/cycle')}
           >
             <div className="gradient-primary p-5">
               <div className="flex items-center gap-3 text-primary-foreground">
-                {isPregnantMode ? (
+                {isPregnantMode || isPostpartumMode ? (
                   <Baby className="w-5 h-5" />
                 ) : (
                   <Droplets className="w-5 h-5" />
                 )}
                 <span className="font-medium">
-                  {isPregnantMode ? 'Pregnancy Mode' : 'Cycle Status'}
+                  {isPregnantMode ? 'Pregnancy Mode' : isPostpartumMode ? 'Post Partum' : 'Cycle Status'}
                 </span>
               </div>
             </div>
@@ -205,10 +222,30 @@ const Home = () => {
                     className="w-full text-wrap leading-tight py-3 h-auto"
                     onClick={(e) => {
                       e.stopPropagation();
-                      handleSwitchToNormal();
+                      handleSwitchToPostpartum();
                     }}
                   >
-                    First period after pregnancy? Switch to Normal
+                    Child born? Switch to Post Partum
+                  </Button>
+                </div>
+              ) : isPostpartumMode ? (
+                <div className="space-y-3">
+                  <div>
+                    <p className="text-lg font-semibold text-foreground">Post Partum Mode</p>
+                    <p className="text-sm text-muted-foreground">
+                      Tracking recovery period
+                    </p>
+                  </div>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="w-full text-wrap leading-tight py-3 h-auto"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleFirstPeriodAfterBirth();
+                    }}
+                  >
+                    First period after child birth? Log & switch to Normal
                   </Button>
                 </div>
               ) : isOngoing ? (

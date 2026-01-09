@@ -261,9 +261,30 @@ export const closeDatabase = async (): Promise<void> => {
 };
 
 /**
- * Clear all data from the database
+ * Clear all data from the database (except preferences)
  */
 export const clearAllData = async (): Promise<void> => {
+  const db = await getDatabase();
+  
+  await db.clear('cycles');
+  await db.clear('weights');
+  await db.clear('checkIns');
+  await db.clear('carePoints');
+  await db.clear('payment');
+  await db.clear('profiles');
+  await db.clear('security');
+  await db.clear('vaccinations');
+  await db.clear('feedingSchedules');
+  await db.clear('feedingLogs');
+  await db.clear('medicineSchedules');
+  await db.clear('medicineLogs');
+  // Note: preferences are NOT cleared to preserve theme/color settings
+};
+
+/**
+ * Clear all data including preferences (for full reset)
+ */
+export const clearAllDataIncludingPreferences = async (): Promise<void> => {
   const db = await getDatabase();
   
   await db.clear('cycles');
@@ -274,6 +295,11 @@ export const clearAllData = async (): Promise<void> => {
   await db.clear('payment');
   await db.clear('profiles');
   await db.clear('security');
+  await db.clear('vaccinations');
+  await db.clear('feedingSchedules');
+  await db.clear('feedingLogs');
+  await db.clear('medicineSchedules');
+  await db.clear('medicineLogs');
 };
 
 /**
