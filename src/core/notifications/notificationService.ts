@@ -210,6 +210,47 @@ export const scheduleMedicineFollowUp = async (
 };
 
 /**
+ * Schedule a feeding reminder
+ */
+export const scheduleFeedingReminder = async (
+  scheduleId: string,
+  feedingName: string,
+  profileId: string,
+  reminderTime: Date
+): Promise<void> => {
+  if (!isNotificationsSupported()) return;
+
+  const prefs = await getPreferences();
+  if (!prefs.feedingRemindersEnabled) return;
+
+  const notificationId = generateNotificationId(scheduleId + reminderTime.toISOString());
+
+  if (reminderTime <= new Date()) return;
+
+  try {
+    await LocalNotifications.schedule({
+      notifications: [
+        {
+          id: notificationId,
+          title: `Feeding Time: ${feedingName}`,
+          body: 'Tap to mark as done or snooze',
+          schedule: { at: reminderTime },
+          actionTypeId: 'FEEDING_ACTION',
+          extra: {
+            type: 'feeding',
+            scheduleId,
+            feedingName,
+            profileId,
+          },
+        },
+      ],
+    });
+  } catch (error) {
+    console.error('Failed to schedule feeding reminder:', error);
+  }
+};
+
+/**
  * Cancel a specific notification
  */
 export const cancelNotification = async (notificationId: number): Promise<void> => {
@@ -268,6 +309,13 @@ export const registerNotificationActions = async (): Promise<void> => {
             { id: 'taken', title: 'Taken' },
             { id: 'snooze_10', title: 'Snooze 10m' },
             { id: 'snooze_30', title: 'Snooze 30m' },
+          ],
+        },
+        {
+          id: 'FEEDING_ACTION',
+          actions: [
+            { id: 'done', title: 'Done' },
+            { id: 'snooze', title: 'Snooze 30m' },
           ],
         },
       ],
