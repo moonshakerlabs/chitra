@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Trash2, AlertTriangle, Calendar } from 'lucide-react';
+import { Trash2, AlertTriangle, Calendar, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -25,7 +25,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
-import type { Profile, ProfileType } from '@/core/types';
+import type { Profile, ProfileType, Gender } from '@/core/types';
 import { 
   addProfile, 
   updateProfile, 
@@ -35,7 +35,7 @@ import {
 } from '@/core/storage/profileService';
 import { useToast } from '@/hooks/use-toast';
 import { useProfile } from '@/core/context/ProfileContext';
-import { format, differenceInYears, parse } from 'date-fns';
+import { format, differenceInYears, subYears } from 'date-fns';
 
 interface ProfileEditModalProps {
   open: boolean;
@@ -51,6 +51,7 @@ const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
   const [name, setName] = useState('');
   const [type, setType] = useState<ProfileType>('dependent');
   const [avatar, setAvatar] = useState('👤');
+  const [gender, setGender] = useState<Gender>('female');
   const [dateOfBirth, setDateOfBirth] = useState<Date | undefined>(undefined);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [canAddMain, setCanAddMain] = useState(true);
@@ -68,16 +69,32 @@ const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
     return differenceInYears(new Date(), dob);
   };
 
+  // Get minimum date based on gender for dependent profiles
+  const getMinDate = () => {
+    if (type === 'dependent' && gender === 'male') {
+      // Male dependents must be under 5 years old
+      return subYears(new Date(), 5);
+    }
+    return new Date('1900-01-01');
+  };
+
+  // Get maximum age for dependent based on gender
+  const getMaxAgeForDependent = () => {
+    return gender === 'male' ? 5 : 18;
+  };
+
   useEffect(() => {
     if (profile) {
       setName(profile.name);
       setType(profile.type);
       setAvatar(profile.avatar);
+      setGender(profile.gender || 'female');
       setDateOfBirth(profile.dateOfBirth ? new Date(profile.dateOfBirth) : undefined);
     } else {
       setName('');
       setType('dependent');
       setAvatar(avatars[Math.floor(Math.random() * avatars.length)]);
+      setGender('female');
       setDateOfBirth(undefined);
     }
     
@@ -123,13 +140,17 @@ const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
       return;
     }
 
-    // Validate age matches profile type
+    // Validate age matches profile type and gender
     if (dateOfBirth) {
       const age = calculateAge(dateOfBirth);
-      if (type === 'dependent' && age >= 18) {
+      const maxAge = getMaxAgeForDependent();
+      
+      if (type === 'dependent' && age >= maxAge) {
         toast({
           title: 'Invalid Date of Birth',
-          description: 'Dependent profiles must be under 18 years old',
+          description: gender === 'male' 
+            ? 'Male dependents must be under 5 years old'
+            : 'Dependent profiles must be under 18 years old',
           variant: 'destructive',
         });
         return;
@@ -146,6 +167,7 @@ const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
           name: name.trim(), 
           type, 
           avatar,
+          gender: type === 'dependent' ? gender : undefined,
           dateOfBirth: dobString,
         });
         if (updated) {
@@ -160,7 +182,7 @@ const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
           });
         }
       } else {
-        const result = await addProfile(name.trim(), type, avatar, dobString);
+        const result = await addProfile(name.trim(), type, avatar, dobString, type === 'dependent' ? gender : undefined);
         if (result.success) {
           toast({ title: 'Profile Added', description: `${name} has been added` });
           await reload();
@@ -206,8 +228,18 @@ const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="max-w-sm">
-          <DialogHeader>
+          <DialogHeader className="flex flex-row items-center justify-between">
             <DialogTitle>{isEditMode ? 'Edit Profile' : 'Add Profile'}</DialogTitle>
+            {isEditMode && profiles.length > 1 && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setShowDeleteDialog(true)}
+                className="text-destructive hover:text-destructive hover:bg-destructive/10"
+              >
+                <Trash2 className="w-5 h-5" />
+              </Button>
+            )}
           </DialogHeader>
 
           <div className="space-y-4 py-4">
@@ -243,47 +275,6 @@ const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
               />
             </div>
 
-            {/* Date of Birth - for dependent profiles */}
-            {type === 'dependent' && (
-              <div>
-                <Label className="text-sm font-medium mb-2 block">Date of Birth</Label>
-                <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className="w-full justify-start text-left font-normal"
-                    >
-                      <Calendar className="mr-2 h-4 w-4" />
-                      {dateOfBirth ? (
-                        <span>
-                          {format(dateOfBirth, 'PPP')} ({calculateAge(dateOfBirth)} years old)
-                        </span>
-                      ) : (
-                        <span className="text-muted-foreground">Select date of birth</span>
-                      )}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <CalendarComponent
-                      mode="single"
-                      selected={dateOfBirth}
-                      onSelect={(date) => {
-                        setDateOfBirth(date);
-                        setCalendarOpen(false);
-                      }}
-                      disabled={(date) => date > new Date() || date < new Date('1900-01-01')}
-                      initialFocus
-                    />
-                  </PopoverContent>
-                </Popover>
-                {dateOfBirth && (
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Age: {calculateAge(dateOfBirth)} years old
-                  </p>
-                )}
-              </div>
-            )}
-
             {/* Profile Type */}
             <div>
               <Label className="text-sm font-medium mb-2 block">Profile Type</Label>
@@ -317,18 +308,98 @@ const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
                 Max: 1 main profile, 4 dependent profiles
               </p>
             </div>
+
+            {/* Gender - for dependent profiles */}
+            {type === 'dependent' && (
+              <div>
+                <Label className="text-sm font-medium mb-2 block">Gender</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => {
+                      setGender('female');
+                      // Reset DOB if switching from male to female
+                      if (dateOfBirth && calculateAge(dateOfBirth) >= 5) {
+                        setDateOfBirth(undefined);
+                      }
+                    }}
+                    className={`p-3 rounded-xl text-center transition-all ${
+                      gender === 'female'
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-secondary hover:bg-secondary/80'
+                    }`}
+                  >
+                    <div className="font-medium">Female</div>
+                    <div className="text-xs opacity-80">Under 18</div>
+                  </button>
+                  <button
+                    onClick={() => {
+                      setGender('male');
+                      // Reset DOB if age is 5+ when switching to male
+                      if (dateOfBirth && calculateAge(dateOfBirth) >= 5) {
+                        setDateOfBirth(undefined);
+                      }
+                    }}
+                    className={`p-3 rounded-xl text-center transition-all ${
+                      gender === 'male'
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-secondary hover:bg-secondary/80'
+                    }`}
+                  >
+                    <div className="font-medium">Male</div>
+                    <div className="text-xs opacity-80">Under 5</div>
+                  </button>
+                </div>
+                {gender === 'male' && (
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Male dependents must be under 5 years old
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Date of Birth - for dependent profiles */}
+            {type === 'dependent' && (
+              <div>
+                <Label className="text-sm font-medium mb-2 block">Date of Birth</Label>
+                <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="w-full justify-start text-left font-normal"
+                    >
+                      <Calendar className="mr-2 h-4 w-4" />
+                      {dateOfBirth ? (
+                        <span>
+                          {format(dateOfBirth, 'PPP')} ({calculateAge(dateOfBirth)} years old)
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">Select date of birth</span>
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <CalendarComponent
+                      mode="single"
+                      selected={dateOfBirth}
+                      onSelect={(date) => {
+                        setDateOfBirth(date);
+                        setCalendarOpen(false);
+                      }}
+                      disabled={(date) => date > new Date() || date < getMinDate()}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+                {dateOfBirth && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Age: {calculateAge(dateOfBirth)} years old
+                  </p>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="flex gap-2">
-            {isEditMode && profiles.length > 1 && (
-              <Button
-                variant="destructive"
-                onClick={() => setShowDeleteDialog(true)}
-                className="flex-shrink-0"
-              >
-                <Trash2 className="w-4 h-4" />
-              </Button>
-            )}
             <Button
               variant="outline"
               onClick={() => onOpenChange(false)}

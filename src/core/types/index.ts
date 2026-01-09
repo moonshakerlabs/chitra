@@ -5,11 +5,14 @@ export type ProfileType = 'main' | 'dependent';
 
 export type ProfileMode = 'normal' | 'pregnant' | 'childcare';
 
+export type Gender = 'male' | 'female';
+
 export interface Profile {
   id: string;
   name: string;
   type: ProfileType; // 'main' for 18+, 'dependent' for under 18
   avatar: string; // emoji identifier
+  gender?: Gender; // required for dependents
   dateOfBirth?: string; // ISO date string - required for dependents
   mode?: ProfileMode; // normal, pregnant, or childcare
   pregnancyStartDate?: string; // when pregnancy mode was enabled

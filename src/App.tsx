@@ -13,7 +13,7 @@ import { MedicineTracker } from "./modules/medicine";
 import { FeedingTracker } from "./modules/feeding";
 import Settings from "./settings/Settings";
 import BottomNav from "./shared/components/BottomNav";
-import AppHeader from "./shared/components/AppHeader";
+// AppHeader removed - settings now in bottom nav only
 import NotFound from "./pages/NotFound";
 import { isOnboardingCompleted, getPreferences, isPinEnabled } from "./core/storage";
 import { ProfileProvider } from "./core/context/ProfileContext";
@@ -165,7 +165,6 @@ const AppContent = () => {
   return (
     <ProfileProvider>
       <div className="min-h-screen bg-background">
-        <AppHeader />
         <main className="pb-20">
           <Routes>
             <Route path="/" element={<Home />} />
@@ -186,7 +185,7 @@ const AppContent = () => {
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
+    <TooltipProvider delayDuration={2000}>
       <Toaster />
       <Sonner />
       <BrowserRouter>
