@@ -11,6 +11,7 @@ const defaultPreferences: UserPreferences = {
   weightUnit: 'kg',
   onboardingCompleted: false,
   privacyAccepted: false,
+  storageFolderAcknowledged: false,
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
 };

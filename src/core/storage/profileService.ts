@@ -79,7 +79,8 @@ export const validateProfileAdd = async (type: ProfileType): Promise<{ valid: bo
 export const addProfile = async (
   name: string, 
   type: ProfileType, 
-  avatar?: string
+  avatar?: string,
+  dateOfBirth?: string
 ): Promise<{ success: boolean; profile?: Profile; error?: string }> => {
   const validation = await validateProfileAdd(type);
   if (!validation.valid) {
@@ -97,6 +98,7 @@ export const addProfile = async (
     name,
     type,
     avatar: selectedAvatar,
+    dateOfBirth,
     createdAt: now,
     updatedAt: now,
   };
