@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { Heart, Droplets, Weight, Smile, TrendingUp, Baby, Syringe, Pill } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
@@ -20,13 +20,26 @@ import type { Profile } from '@/core/types';
 const Home = () => {
   const navigate = useNavigate();
   const { activeProfile, profiles, reload } = useProfile();
-  const { cycle, isOngoing } = useLatestCycle();
-  const { insights } = useCycleInsights();
+  const { cycle, isOngoing, reload: reloadCycle } = useLatestCycle();
+  const { insights, reload: reloadInsights } = useCycleInsights();
   const { weight: latestWeight } = useLatestWeight();
   const { trend: weightTrend } = useWeightTrend(30);
   const [showAddProfile, setShowAddProfile] = useState(false);
   const [editingProfile, setEditingProfile] = useState<Profile | undefined>(undefined);
   const { toast } = useToast();
+
+  // Refresh cycle data when profile mode changes
+  const refreshCycleData = useCallback(() => {
+    reloadCycle();
+    reloadInsights();
+  }, [reloadCycle, reloadInsights]);
+
+  // Listen for profile changes and refresh cycle data
+  useEffect(() => {
+    if (activeProfile) {
+      refreshCycleData();
+    }
+  }, [activeProfile?.mode, activeProfile?.id, refreshCycleData]);
 
   const isPregnantMode = activeProfile?.mode === 'pregnant';
   const isPostpartumMode = activeProfile?.mode === 'postpartum';
@@ -62,21 +75,26 @@ const Home = () => {
       title: 'Mode Updated',
       description: 'Switched to post partum mode.',
     });
-    reload();
+    await reload();
+    refreshCycleData();
   };
 
-  const handleFirstPeriodAfterBirth = () => {
-    // Navigate to cycle tracker to log first period
-    navigate('/cycle');
+  const handleFirstPeriodAfterBirth = async () => {
+    if (!activeProfile) return;
+    
+    // First switch to normal mode
+    await updateProfile(activeProfile.id, { mode: 'normal' });
+    
     toast({
-      title: 'Log First Period',
-      description: 'Log your first period after childbirth. Your mode will switch to normal.',
+      title: 'Mode Updated',
+      description: 'Switched to normal mode. You can now log your cycle.',
     });
-    // Switch to normal mode
-    if (activeProfile) {
-      updateProfile(activeProfile.id, { mode: 'normal' });
-      reload();
-    }
+    
+    await reload();
+    refreshCycleData();
+    
+    // Then navigate to cycle tracker to log first period
+    navigate('/cycle');
   };
 
   const getPregnancyWeeks = (): number | null => {

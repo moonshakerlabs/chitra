@@ -83,19 +83,19 @@ const MedicineSetupModal = ({
       return;
     }
 
-    if (timesPerDay < 1 || timesPerDay > 12) {
+    if (timesPerDay < 1) {
       toast({
         title: 'Invalid Times Per Day',
-        description: 'Please enter a value between 1 and 12',
+        description: 'Please enter a value of 1 or more',
         variant: 'destructive',
       });
       return;
     }
 
-    if (intervalHours < 1 || intervalHours > 24) {
+    if (intervalHours < 1) {
       toast({
         title: 'Invalid Interval',
-        description: 'Please enter an interval between 1 and 24 hours',
+        description: 'Please enter an interval of 1 hour or more',
         variant: 'destructive',
       });
       return;
@@ -170,57 +170,41 @@ const MedicineSetupModal = ({
             />
           </div>
 
-          {/* Times Per Day */}
+          {/* Times Per Day - No upper limit now */}
           <div>
             <Label className="text-sm font-medium mb-2 block">
               <Hash className="inline w-4 h-4 mr-1" />
               Times Per Day
             </Label>
-            <Select
-              value={timesPerDay.toString()}
-              onValueChange={(v) => setTimesPerDay(parseInt(v))}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {[1, 2, 3, 4, 5, 6].map((n) => (
-                  <SelectItem key={n} value={n.toString()}>
-                    {n} time{n > 1 ? 's' : ''} per day
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Input
+              type="number"
+              min={1}
+              value={timesPerDay}
+              onChange={(e) => setTimesPerDay(parseInt(e.target.value) || 1)}
+              placeholder="e.g., 3"
+            />
           </div>
 
-          {/* Interval Hours */}
+          {/* Interval Hours - No upper limit now */}
           <div>
             <Label className="text-sm font-medium mb-2 block">
               <Clock className="inline w-4 h-4 mr-1" />
-              Time Gap Between Reminders
+              Time Gap Between Reminders (hours)
             </Label>
-            <Select
-              value={intervalHours.toString()}
-              onValueChange={(v) => setIntervalHours(parseInt(v))}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {[2, 3, 4, 6, 8, 12, 24].map((n) => (
-                  <SelectItem key={n} value={n.toString()}>
-                    Every {n} hour{n > 1 ? 's' : ''}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Input
+              type="number"
+              min={1}
+              value={intervalHours}
+              onChange={(e) => setIntervalHours(parseInt(e.target.value) || 1)}
+              placeholder="e.g., 8"
+            />
           </div>
 
-          {/* End Condition */}
+          {/* End Condition - No upper limits now */}
           <div>
             <Label className="text-sm font-medium mb-2 block">
               <Calendar className="inline w-4 h-4 mr-1" />
-              Stop After
+              Stop After (Optional)
             </Label>
             <div className="flex gap-2">
               <Select
@@ -238,7 +222,6 @@ const MedicineSetupModal = ({
               <Input
                 type="number"
                 min={1}
-                max={endType === 'days' ? 365 : 999}
                 value={endType === 'days' ? totalDays : totalReminders}
                 onChange={(e) => {
                   const val = parseInt(e.target.value) || 1;
@@ -249,10 +232,11 @@ const MedicineSetupModal = ({
                   }
                 }}
                 className="flex-1"
+                placeholder="No limit if empty"
               />
             </div>
             <p className="text-xs text-muted-foreground mt-1">
-              Reminders will stop automatically after this
+              Leave empty or set 0 for unlimited reminders
             </p>
           </div>
         </div>
