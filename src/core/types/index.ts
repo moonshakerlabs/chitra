@@ -3,7 +3,7 @@
 // ============ Profile Types ============
 export type ProfileType = 'main' | 'dependent';
 
-export type ProfileMode = 'normal' | 'pregnant' | 'postpartum' | 'childcare';
+export type ProfileMode = 'normal' | 'pregnant' | 'postpartum' | 'childcare' | 'no_menstrual';
 
 export type Gender = 'male' | 'female';
 

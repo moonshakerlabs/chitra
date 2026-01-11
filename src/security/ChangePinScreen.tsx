@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Lock, Delete, CheckCircle } from 'lucide-react';
+import { Lock, Delete, ArrowLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { changePin } from '@/core/storage/securityService';
 import { useToast } from '@/hooks/use-toast';
@@ -53,6 +53,18 @@ const ChangePinScreen = ({ onComplete, onCancel }: ChangePinScreenProps) => {
     }
   };
 
+  const handleBack = () => {
+    if (step === 'confirm') {
+      setStep('new');
+      setConfirmPin('');
+    } else if (step === 'new') {
+      setStep('current');
+      setNewPin('');
+    } else {
+      onCancel();
+    }
+  };
+
   const handlePinComplete = async (pin: string) => {
     if (step === 'current') {
       // Move to new PIN step
@@ -102,15 +114,12 @@ const ChangePinScreen = ({ onComplete, onCancel }: ChangePinScreenProps) => {
 
   return (
     <div className="fixed inset-0 bg-background z-50 flex flex-col">
-      {/* Header */}
-      <div className="p-4">
-        <Button
-          variant="ghost"
-          onClick={onCancel}
-          className="text-muted-foreground"
-        >
-          Cancel
+      {/* Header with Back Button */}
+      <div className="flex items-center p-4">
+        <Button variant="ghost" size="icon" onClick={handleBack}>
+          <ArrowLeft className="w-5 h-5" />
         </Button>
+        <h1 className="text-lg font-semibold ml-2">Change PIN</h1>
       </div>
 
       {/* Content */}
