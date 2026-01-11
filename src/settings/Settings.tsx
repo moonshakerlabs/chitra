@@ -21,7 +21,9 @@ import {
   Folder,
   AlertTriangle,
   Baby,
-  Calendar
+  Calendar,
+  Bell,
+  ExternalLink
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -39,6 +41,7 @@ import { exportDataMobile, isNativePlatform } from '@/core/export/mobileExport';
 import { importFromJSON, importFromCSV } from '@/core/export';
 import { useProfile } from '@/core/context/ProfileContext';
 import { getStorageFolderPath, clearStorageFolderConfig, createChitraFolder } from '@/core/storage/folderService';
+import { checkNotificationPermission, requestNotificationPermission } from '@/core/notifications/permissionService';
 import type { UserPreferences, ThemeMode, ColorTheme, CountryCode, LanguageCode, ExportFormat, ProfileMode } from '@/core/types';
 import type { ExportDataTypeExtended } from '@/core/export/mobileExport';
 import { updateProfile } from '@/core/storage/profileService';
@@ -61,6 +64,7 @@ import {
 } from "@/components/ui/dialog";
 import ProfileEditModal from '@/profiles/ProfileEditModal';
 import { PinSetupScreen, ChangePinScreen } from '@/security';
+import { Capacitor } from '@capacitor/core';
 
 const countries: Array<{ code: CountryCode; name: string; flag: string }> = [
   { code: 'USA', name: 'United States', flag: '🇺🇸' },
@@ -108,6 +112,11 @@ const Settings = () => {
   const [exportProfileOption, setExportProfileOption] = useState<'current' | 'all'>('current');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [importType, setImportType] = useState<'json' | 'csv'>('json');
+  
+  // Notification permission state
+  const [notificationPermissionGranted, setNotificationPermissionGranted] = useState(true);
+  const [notificationPermissionDenied, setNotificationPermissionDenied] = useState(false);
+  
   const { toast } = useToast();
   const { profiles, activeProfile } = useProfile();
 
@@ -115,6 +124,7 @@ const Settings = () => {
     loadPreferences();
     checkPinStatus();
     loadStorageFolder();
+    checkNotificationStatus();
   }, []);
 
   const loadPreferences = async () => {
@@ -133,15 +143,39 @@ const Settings = () => {
     setStorageFolderPath(path);
   };
 
+  const checkNotificationStatus = async () => {
+    const status = await checkNotificationPermission();
+    setNotificationPermissionGranted(status.granted);
+    setNotificationPermissionDenied(status.deniedPermanently);
+  };
+
+  const handleRequestNotificationPermission = async () => {
+    const granted = await requestNotificationPermission();
+    if (granted) {
+      setNotificationPermissionGranted(true);
+      setNotificationPermissionDenied(false);
+      toast({
+        title: 'Notifications Enabled',
+        description: 'You will now receive reminders.',
+      });
+    } else {
+      toast({
+        title: 'Permission Denied',
+        description: 'Please enable notifications in your device settings.',
+        variant: 'destructive',
+      });
+    }
+  };
+
   const handleChangeFolder = async () => {
     setShowChangeFolderDialog(false);
+    // Clear only the folder config, NOT the app data
     await clearStorageFolderConfig();
-    // Only change folder path, don't delete app data
     toast({
-      title: 'Folder Changed',
-      description: 'Please select a new storage folder for exports and attachments.',
+      title: 'Folder Configuration Cleared',
+      description: 'Please select a new storage folder. Your data is preserved.',
     });
-    // Navigate to folder selection
+    // Navigate to folder selection (in onboarding flow, but skip other steps)
     window.location.reload();
   };
 
@@ -475,10 +509,36 @@ const Settings = () => {
       >
         <h2 className="text-sm font-medium text-muted-foreground mb-3 uppercase tracking-wide">Notifications</h2>
         <Card className="divide-y divide-border">
+          {/* Permission Warning */}
+          {notificationPermissionDenied && (
+            <div className="p-4 bg-destructive/10 border-b border-destructive/20">
+              <div className="flex items-start gap-3">
+                <AlertTriangle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-destructive">Notifications Disabled</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Notifications are disabled at system level. Please enable notifications in your device Settings.
+                  </p>
+                  {Capacitor.isNativePlatform() && (
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="mt-2"
+                      onClick={handleRequestNotificationPermission}
+                    >
+                      <ExternalLink className="w-3 h-3 mr-1" />
+                      Request Permission
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="flex items-center justify-between p-4">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-secondary flex items-center justify-center">
-                <Heart className="w-5 h-5 text-primary" />
+                <Bell className="w-5 h-5 text-primary" />
               </div>
               <div>
                 <p className="font-medium text-foreground">Vaccination Reminders</p>
@@ -486,14 +546,15 @@ const Settings = () => {
               </div>
             </div>
             <Switch
-              checked={preferences?.vaccinationRemindersEnabled ?? true}
+              checked={notificationPermissionGranted && (preferences?.vaccinationRemindersEnabled ?? true)}
               onCheckedChange={(checked) => updatePreference('vaccinationRemindersEnabled', checked)}
+              disabled={!notificationPermissionGranted}
             />
           </div>
           <div className="flex items-center justify-between p-4">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-secondary flex items-center justify-center">
-                <Heart className="w-5 h-5 text-primary" />
+                <Bell className="w-5 h-5 text-primary" />
               </div>
               <div>
                 <p className="font-medium text-foreground">Medicine Reminders</p>
@@ -501,8 +562,25 @@ const Settings = () => {
               </div>
             </div>
             <Switch
-              checked={preferences?.medicineRemindersEnabled ?? true}
+              checked={notificationPermissionGranted && (preferences?.medicineRemindersEnabled ?? true)}
               onCheckedChange={(checked) => updatePreference('medicineRemindersEnabled', checked)}
+              disabled={!notificationPermissionGranted}
+            />
+          </div>
+          <div className="flex items-center justify-between p-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-secondary flex items-center justify-center">
+                <Bell className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <p className="font-medium text-foreground">Feeding Reminders</p>
+                <p className="text-sm text-muted-foreground">Feeding time notifications</p>
+              </div>
+            </div>
+            <Switch
+              checked={notificationPermissionGranted && (preferences?.feedingRemindersEnabled ?? true)}
+              onCheckedChange={(checked) => updatePreference('feedingRemindersEnabled', checked)}
+              disabled={!notificationPermissionGranted}
             />
           </div>
         </Card>

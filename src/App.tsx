@@ -3,7 +3,9 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useNavigate, useLocation } from "react-router-dom";
+import { Capacitor } from '@capacitor/core';
+import { App as CapacitorApp } from '@capacitor/app';
 import OnboardingFlow from "./onboarding/OnboardingFlow";
 import Home from "./pages/Home";
 import { CycleTracker } from "./modules/cycle";
@@ -13,7 +15,6 @@ import { MedicineTracker } from "./modules/medicine";
 import { FeedingTracker } from "./modules/feeding";
 import Settings from "./settings/Settings";
 import BottomNav from "./shared/components/BottomNav";
-// AppHeader removed - settings now in bottom nav only
 import NotFound from "./pages/NotFound";
 import { isOnboardingCompleted, getPreferences, isPinEnabled } from "./core/storage";
 import { ProfileProvider } from "./core/context/ProfileContext";
@@ -28,9 +29,18 @@ import {
 import { addVaccination } from "./modules/vaccination/vaccinationService";
 import { markMedicineTaken, snoozeMedicineReminder } from "./modules/medicine/medicineService";
 import { createFeedingLog, snoozeFeedingReminder } from "./modules/feeding/feedingService";
-import type { ThemeMode } from "./core/types";
+import type { ThemeMode, ColorTheme } from "./core/types";
 
 const queryClient = new QueryClient();
+
+// Color theme HSL values for dynamic application
+const colorThemeValues: Record<ColorTheme, string> = {
+  pink: '330 81% 60%',
+  purple: '270 65% 55%',
+  blue: '210 80% 55%',
+  green: '145 60% 45%',
+  orange: '25 90% 55%',
+};
 
 const AppContent = () => {
   const [showOnboarding, setShowOnboarding] = useState<boolean | null>(null);
@@ -124,6 +134,7 @@ const AppContent = () => {
     const prefs = await getPreferences();
     const root = document.documentElement;
     
+    // Apply dark/light mode
     if (prefs.theme === 'dark') {
       root.classList.add('dark');
     } else if (prefs.theme === 'light') {
@@ -135,6 +146,20 @@ const AppContent = () => {
       } else {
         root.classList.remove('dark');
       }
+    }
+
+    // Apply color theme - ensure it persists across app restarts
+    if (prefs.colorTheme && colorThemeValues[prefs.colorTheme]) {
+      const hsl = colorThemeValues[prefs.colorTheme];
+      root.style.setProperty('--primary', hsl);
+      root.style.setProperty('--ring', hsl);
+      root.style.setProperty('--chitra-pink', hsl);
+      root.style.setProperty('--nav-active', hsl);
+      root.style.setProperty('--chart-1', hsl);
+      
+      // Update accent to be slightly different
+      const [h, s, l] = hsl.split(' ').map(v => parseFloat(v));
+      root.style.setProperty('--accent', `${h + 5} ${Math.min(parseInt(s.toString()), 80)}% ${Math.max(parseInt(l.toString()) - 5, 40)}%`);
     }
   };
 
@@ -161,6 +186,32 @@ const AppContent = () => {
   if (isLocked) {
     return <PinLockScreen onUnlock={handleUnlock} />;
   }
+
+  // Handle Android back button
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+
+    const setupBackButton = async () => {
+      await CapacitorApp.addListener('backButton', ({ canGoBack }) => {
+        // Get current path from window.location since we can't use hooks here directly
+        const currentPath = window.location.pathname;
+        
+        if (currentPath === '/' || currentPath === '') {
+          // On home screen, minimize the app
+          CapacitorApp.minimizeApp();
+        } else {
+          // Navigate back using browser history
+          window.history.back();
+        }
+      });
+    };
+
+    setupBackButton();
+
+    return () => {
+      CapacitorApp.removeAllListeners();
+    };
+  }, []);
 
   return (
     <ProfileProvider>

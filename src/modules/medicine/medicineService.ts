@@ -2,8 +2,9 @@ import { getDatabase } from '@/core/storage/database';
 import { generateId } from '@/core/utils/helpers';
 import type { MedicineSchedule, MedicineLog } from '@/core/types';
 
-const MAX_SNOOZE_COUNT = 3;
-const MAX_SNOOZE_MINUTES = 30;
+// Snooze limits - these are for individual reminders, not total reminders
+const MAX_SNOOZE_COUNT = 5; // Increased from 3
+const MAX_SNOOZE_MINUTES = 60; // Increased from 30
 const DEFAULT_REMINDER_INTERVAL_MINUTES = 20;
 
 /**
