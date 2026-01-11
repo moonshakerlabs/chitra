@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -47,13 +47,7 @@ const AppContent = () => {
   const [isLocked, setIsLocked] = useState<boolean | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    checkOnboarding();
-    applyTheme();
-    setupNotifications();
-  }, []);
-
-  const setupNotifications = async () => {
+  const setupNotifications = useCallback(async () => {
     const granted = await initializeNotifications();
     if (granted) {
       await registerNotificationActions();
@@ -102,24 +96,9 @@ const AppContent = () => {
         }
       });
     }
-  };
-
-  // Lock app when it goes to background
-  useEffect(() => {
-    const handleVisibilityChange = async () => {
-      if (document.hidden) {
-        const pinEnabled = await isPinEnabled();
-        if (pinEnabled) {
-          setIsLocked(true);
-        }
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
   }, []);
 
-  const checkOnboarding = async () => {
+  const checkOnboarding = useCallback(async () => {
     const completed = await isOnboardingCompleted();
     setShowOnboarding(!completed);
     
@@ -128,9 +107,9 @@ const AppContent = () => {
     setIsLocked(pinEnabled);
     
     setLoading(false);
-  };
+  }, []);
 
-  const applyTheme = async () => {
+  const applyTheme = useCallback(async () => {
     const prefs = await getPreferences();
     const root = document.documentElement;
     
@@ -161,38 +140,36 @@ const AppContent = () => {
       const [h, s, l] = hsl.split(' ').map(v => parseFloat(v));
       root.style.setProperty('--accent', `${h + 5} ${Math.min(parseInt(s.toString()), 80)}% ${Math.max(parseInt(l.toString()) - 5, 40)}%`);
     }
-  };
+  }, []);
 
-  const handleOnboardingComplete = () => {
-    setShowOnboarding(false);
-  };
+  // Initial setup effects
+  useEffect(() => {
+    checkOnboarding();
+    applyTheme();
+    setupNotifications();
+  }, [checkOnboarding, applyTheme, setupNotifications]);
 
-  const handleUnlock = () => {
-    setIsLocked(false);
-  };
+  // Lock app when it goes to background
+  useEffect(() => {
+    const handleVisibilityChange = async () => {
+      if (document.hidden) {
+        const pinEnabled = await isPinEnabled();
+        if (pinEnabled) {
+          setIsLocked(true);
+        }
+      }
+    };
 
-  if (loading) {
-    return (
-      <div className="fixed inset-0 bg-background flex items-center justify-center">
-        <div className="animate-pulse-soft text-primary text-xl font-semibold">CHITRA</div>
-      </div>
-    );
-  }
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, []);
 
-  if (showOnboarding) {
-    return <OnboardingFlow onComplete={handleOnboardingComplete} />;
-  }
-
-  if (isLocked) {
-    return <PinLockScreen onUnlock={handleUnlock} />;
-  }
-
-  // Handle Android back button
+  // Handle Android back button - MUST be before any conditional returns
   useEffect(() => {
     if (!Capacitor.isNativePlatform()) return;
 
     const setupBackButton = async () => {
-      await CapacitorApp.addListener('backButton', ({ canGoBack }) => {
+      await CapacitorApp.addListener('backButton', () => {
         // Get current path from window.location since we can't use hooks here directly
         const currentPath = window.location.pathname;
         
@@ -212,6 +189,14 @@ const AppContent = () => {
       CapacitorApp.removeAllListeners();
     };
   }, []);
+
+  const handleOnboardingComplete = () => {
+    setShowOnboarding(false);
+  };
+
+  const handleUnlock = () => {
+    setIsLocked(false);
+  };
 
   return (
     <ProfileProvider>

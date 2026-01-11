@@ -48,7 +48,8 @@ export const useFeedingSchedules = () => {
     feedingName: string,
     reminderType: 'time' | 'interval',
     reminderTime?: string,
-    intervalHours?: number
+    intervalHours?: number,
+    feedingType: 'breast_milk' | 'formula' | 'solid_food' | 'water' | 'other' = 'breast_milk'
   ) => {
     if (!activeProfile) return null;
 
@@ -56,6 +57,7 @@ export const useFeedingSchedules = () => {
       const schedule = await addFeedingSchedule({
         profileId: activeProfile.id,
         feedingName,
+        feedingType,
         reminderType,
         reminderTime,
         intervalHours,
