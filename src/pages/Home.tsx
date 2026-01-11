@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { Heart, Droplets, Weight, Smile, TrendingUp, Baby, Syringe, Pill } from 'lucide-react';
+import { Heart, Droplets, Weight, Smile, TrendingUp, Baby, Syringe, Pill, Utensils } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
@@ -44,6 +44,26 @@ const Home = () => {
   const isPregnantMode = activeProfile?.mode === 'pregnant';
   const isPostpartumMode = activeProfile?.mode === 'postpartum';
   const isChildcareMode = activeProfile?.mode === 'childcare';
+  const isNoMenstrualMode = activeProfile?.mode === 'no_menstrual';
+  
+  // Check if this is a dependent profile (under 18)
+  const isDependent = activeProfile?.type === 'dependent';
+  
+  // Check if feeding should be shown (for dependents under 5, or childcare mode for adults)
+  const shouldShowFeeding = () => {
+    if (!activeProfile) return false;
+    
+    // Adults in childcare mode
+    if (activeProfile.type === 'main' && isChildcareMode) return true;
+    
+    // Dependents under 5 years (regardless of gender)
+    if (isDependent && activeProfile.dateOfBirth) {
+      const age = differenceInYears(new Date(), new Date(activeProfile.dateOfBirth));
+      return age < 5;
+    }
+    
+    return false;
+  };
 
   // Check if cycle tracking should be hidden for this profile
   const shouldHideCycle = () => {
@@ -52,7 +72,13 @@ const Home = () => {
     // Hide for male profiles
     if (activeProfile.gender === 'male') return true;
     
-    // For main profiles (adults), show cycle unless they are in childcare mode
+    // Hide for "no_menstrual" mode (menopause, hysterectomy)
+    if (activeProfile.mode === 'no_menstrual') return true;
+    
+    // Hide for childcare mode
+    if (activeProfile.mode === 'childcare') return true;
+    
+    // For main profiles (adults), show cycle normally
     if (activeProfile.type === 'main') return false;
     
     // For female dependents, check age (show if 10 or above)
@@ -104,6 +130,7 @@ const Home = () => {
   };
 
   const hideCycle = shouldHideCycle();
+  const showFeeding = shouldShowFeeding();
 
   return (
     <div className="px-4 py-6 space-y-6 pb-24">
@@ -144,6 +171,7 @@ const Home = () => {
         className="space-y-3"
       >
         <div className="grid grid-cols-2 gap-3">
+          {/* Log Cycle - shown for females 10+ not in special modes */}
           {!hideCycle && (
             <Button
               variant="outline"
@@ -154,6 +182,8 @@ const Home = () => {
               <span className="text-xs font-medium">Log Cycle</span>
             </Button>
           )}
+          
+          {/* Log Weight - always shown */}
           <Button
             variant="outline"
             className="h-20 flex-col gap-2 rounded-2xl border-2 hover:border-primary hover:bg-primary/5"
@@ -162,7 +192,21 @@ const Home = () => {
             <Weight className="w-6 h-6 text-primary" />
             <span className="text-xs font-medium">Log Weight</span>
           </Button>
-          {hideCycle && (
+          
+          {/* Log Feeding - shown for dependents under 5 or adults in childcare mode */}
+          {showFeeding && (
+            <Button
+              variant="outline"
+              className="h-20 flex-col gap-2 rounded-2xl border-2 hover:border-primary hover:bg-primary/5"
+              onClick={() => navigate('/feeding')}
+            >
+              <Utensils className="w-6 h-6 text-primary" />
+              <span className="text-xs font-medium">Log Feeding</span>
+            </Button>
+          )}
+          
+          {/* Log Vaccination - shown when cycle is hidden or as second row item */}
+          {hideCycle && !showFeeding && (
             <Button
               variant="outline"
               className="h-20 flex-col gap-2 rounded-2xl border-2 hover:border-primary hover:bg-primary/5"
@@ -174,6 +218,7 @@ const Home = () => {
           )}
         </div>
         <div className="grid grid-cols-2 gap-3">
+          {/* Log Vaccination - shown in second row for profiles that show cycle */}
           {!hideCycle && (
             <Button
               variant="outline"
@@ -184,6 +229,19 @@ const Home = () => {
               <span className="text-xs font-medium">Log Vaccination</span>
             </Button>
           )}
+          
+          {/* Show vaccination if cycle hidden and we haven't shown it yet */}
+          {hideCycle && showFeeding && (
+            <Button
+              variant="outline"
+              className="h-20 flex-col gap-2 rounded-2xl border-2 hover:border-primary hover:bg-primary/5"
+              onClick={() => navigate('/vaccination')}
+            >
+              <Syringe className="w-6 h-6 text-primary" />
+              <span className="text-xs font-medium">Log Vaccination</span>
+            </Button>
+          )}
+          
           <Button
             variant="outline"
             className="h-20 flex-col gap-2 rounded-2xl border-2 hover:border-primary hover:bg-primary/5"
@@ -295,7 +353,7 @@ const Home = () => {
         </motion.div>
       )}
 
-      {/* Childcare Quick Access */}
+      {/* Childcare Quick Access - for adults in childcare mode */}
       {isChildcareMode && (
         <motion.div
           initial={{ opacity: 0, y: 10 }}
@@ -316,6 +374,35 @@ const Home = () => {
               <p className="text-lg font-semibold text-foreground">Feeding & Care Tracking</p>
               <p className="text-sm text-muted-foreground">
                 Manage feeding schedules, vaccinations, and medicines
+              </p>
+            </CardContent>
+          </Card>
+        </motion.div>
+      )}
+
+      {/* Feeding Card - for dependent profiles under 5 */}
+      {showFeeding && !isChildcareMode && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+        >
+          <Card 
+            className="overflow-hidden cursor-pointer hover:shadow-md transition-shadow"
+            onClick={() => navigate('/feeding')}
+          >
+            <div className="gradient-primary p-5">
+              <div className="flex items-center gap-3 text-primary-foreground">
+                <Utensils className="w-5 h-5" />
+                <span className="font-medium">Feeding Tracker</span>
+              </div>
+            </div>
+            <CardContent className="p-4">
+              <p className="text-lg font-semibold text-foreground">
+                {activeProfile?.name}'s Feeding
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Track feeding times, types, and quantities
               </p>
             </CardContent>
           </Card>

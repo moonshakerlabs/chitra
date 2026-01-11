@@ -204,48 +204,83 @@ const migrateExistingData = async (): Promise<void> => {
 
   const profiles = await dbInstance.getAll('profiles');
   
-  // If no profiles exist, create default and migrate data
+  // Only create default profile if NO profiles exist at all
+  // This prevents overwriting existing profiles during upgrade
   if (profiles.length === 0) {
-    const now = new Date().toISOString();
-    const defaultProfile: Profile = {
-      id: 'default-profile',
-      name: 'Me',
-      type: 'main',
-      avatar: '👤',
-      createdAt: now,
-      updatedAt: now,
-    };
+    // Check if there's any cycle/weight data without a profile
+    const cycles = await dbInstance.getAll('cycles');
+    const weights = await dbInstance.getAll('weights');
+    const checkIns = await dbInstance.getAll('checkIns');
     
-    await dbInstance.put('profiles', defaultProfile);
+    const hasOrphanedData = cycles.some(c => !c.profileId) || 
+                            weights.some(w => !w.profileId) || 
+                            checkIns.some(ch => !ch.profileId);
+    
+    // Only create default profile if there's orphaned data to migrate
+    if (hasOrphanedData) {
+      const now = new Date().toISOString();
+      const defaultProfile: Profile = {
+        id: 'default-profile',
+        name: 'Me',
+        type: 'main',
+        avatar: '👤',
+        createdAt: now,
+        updatedAt: now,
+      };
+      
+      await dbInstance.put('profiles', defaultProfile);
 
-    // Update existing cycles
+      // Update existing cycles that have no profileId
+      for (const cycle of cycles) {
+        if (!cycle.profileId) {
+          await dbInstance.put('cycles', { ...cycle, profileId: defaultProfile.id });
+        }
+      }
+
+      // Update existing weights that have no profileId
+      for (const weight of weights) {
+        if (!weight.profileId) {
+          await dbInstance.put('weights', { ...weight, profileId: defaultProfile.id });
+        }
+      }
+
+      // Update existing checkIns that have no profileId
+      for (const checkIn of checkIns) {
+        if (!checkIn.profileId) {
+          await dbInstance.put('checkIns', { ...checkIn, profileId: defaultProfile.id });
+        }
+      }
+
+      // Update preferences with active profile only if not set
+      const prefs = await dbInstance.get('preferences', 'user');
+      if (prefs && !prefs.activeProfileId) {
+        await dbInstance.put('preferences', { ...prefs, activeProfileId: defaultProfile.id });
+      }
+    }
+  } else {
+    // Profiles exist - don't touch them!
+    // Only migrate orphaned data to the first main profile if any exists
+    const mainProfile = profiles.find(p => p.type === 'main') || profiles[0];
+    
     const cycles = await dbInstance.getAll('cycles');
     for (const cycle of cycles) {
       if (!cycle.profileId) {
-        await dbInstance.put('cycles', { ...cycle, profileId: defaultProfile.id });
+        await dbInstance.put('cycles', { ...cycle, profileId: mainProfile.id });
       }
     }
 
-    // Update existing weights
     const weights = await dbInstance.getAll('weights');
     for (const weight of weights) {
       if (!weight.profileId) {
-        await dbInstance.put('weights', { ...weight, profileId: defaultProfile.id });
+        await dbInstance.put('weights', { ...weight, profileId: mainProfile.id });
       }
     }
 
-    // Update existing checkIns
     const checkIns = await dbInstance.getAll('checkIns');
     for (const checkIn of checkIns) {
       if (!checkIn.profileId) {
-        await dbInstance.put('checkIns', { ...checkIn, profileId: defaultProfile.id });
+        await dbInstance.put('checkIns', { ...checkIn, profileId: mainProfile.id });
       }
-    }
-
-    // Update preferences with active profile
-    const prefs = await dbInstance.get('preferences', 'user');
-    if (prefs && !prefs.activeProfileId) {
-      await dbInstance.put('preferences', { ...prefs, activeProfileId: defaultProfile.id });
     }
   }
 };

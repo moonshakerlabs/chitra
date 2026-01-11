@@ -529,29 +529,52 @@ const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
             {isEditMode && type === 'main' && (
               <div>
                 <Label className="text-sm font-medium mb-2 block">Profile Mode</Label>
-                <div className="grid grid-cols-2 gap-2">
-                  {(['normal', 'pregnant', 'postpartum', 'childcare'] as const).map((m) => {
-                    const modeLabel = m === 'childcare' ? 'Child Care' : 
-                                     m === 'postpartum' ? 'Post Partum' : 
-                                     m.charAt(0).toUpperCase() + m.slice(1);
-                    return (
-                      <button
-                        key={m}
-                        onClick={() => handleModeChange(m as ProfileMode)}
-                        className={`py-2 px-2 rounded-xl text-xs font-medium transition-all ${
-                          mode === m
-                            ? 'bg-primary text-primary-foreground'
-                            : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
-                        }`}
-                      >
-                        {modeLabel}
-                      </button>
-                    );
-                  })}
+                <div className="space-y-2">
+                  <div className="grid grid-cols-2 gap-2">
+                    {(['normal', 'pregnant', 'postpartum', 'childcare'] as const).map((m) => {
+                      const modeLabel = m === 'childcare' ? 'Child Care' : 
+                                       m === 'postpartum' ? 'Post Partum' : 
+                                       m.charAt(0).toUpperCase() + m.slice(1);
+                      return (
+                        <button
+                          key={m}
+                          onClick={() => handleModeChange(m as ProfileMode)}
+                          className={`py-2 px-2 rounded-xl text-xs font-medium transition-all ${
+                            mode === m
+                              ? 'bg-primary text-primary-foreground'
+                              : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
+                          }`}
+                        >
+                          {modeLabel}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  
+                  {/* No Menstrual Tracking option */}
+                  <button
+                    onClick={() => setMode('no_menstrual')}
+                    className={`w-full py-2.5 px-3 rounded-xl text-xs font-medium transition-all text-left ${
+                      mode === 'no_menstrual'
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-secondary text-secondary-foreground hover:bg-secondary/80'
+                    }`}
+                  >
+                    <span>Menstrual Tracking Not Needed</span>
+                    <span className={`block text-[10px] mt-0.5 ${mode === 'no_menstrual' ? 'text-primary-foreground/70' : 'text-muted-foreground'}`}>
+                      (Menopause, Hysterectomy, etc.)
+                    </span>
+                  </button>
                 </div>
+                
                 {mode === 'pregnant' && profile?.expectedDueDate && (
                   <p className="text-xs text-primary mt-2">
                     Expected due: {format(new Date(profile.expectedDueDate), 'PPP')}
+                  </p>
+                )}
+                {mode === 'no_menstrual' && (
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Cycle tracking will be hidden from your dashboard.
                   </p>
                 )}
               </div>

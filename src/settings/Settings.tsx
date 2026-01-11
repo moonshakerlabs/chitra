@@ -482,10 +482,10 @@ const Settings = () => {
                 <div className="w-10 h-10 rounded-xl bg-secondary flex items-center justify-center">
                   <Folder className="w-5 h-5 text-primary" />
                 </div>
-                <div>
-                  <p className="font-medium text-foreground">Storage Folder</p>
-                  <p className="text-sm text-muted-foreground truncate max-w-48">
-                    {storageFolderPath || 'CHITRA folder'}
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-foreground">Backup Folder</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    For exports, vaccinations, and backups only
                   </p>
                 </div>
               </div>
@@ -493,9 +493,16 @@ const Settings = () => {
                 Change
               </Button>
             </div>
-            <p className="text-xs text-muted-foreground mt-3 flex items-center gap-1">
-              <AlertTriangle className="w-3 h-3" />
-              Do not change file or folder names manually.
+            {storageFolderPath && (
+              <div className="mt-3 p-2 bg-secondary/50 rounded-lg">
+                <p className="text-xs font-mono text-muted-foreground break-all">
+                  📁 {storageFolderPath}
+                </p>
+              </div>
+            )}
+            <p className="text-xs text-muted-foreground mt-3 flex items-start gap-1">
+              <AlertTriangle className="w-3 h-3 mt-0.5 shrink-0" />
+              <span>App data is stored in the browser database. This folder is only for file backups and exports.</span>
             </p>
           </div>
         </Card>
@@ -535,6 +542,25 @@ const Settings = () => {
             </div>
           )}
 
+          {/* Enable Notifications - shown when permission not granted */}
+          {!notificationPermissionGranted && !notificationPermissionDenied && (
+            <button
+              onClick={handleRequestNotificationPermission}
+              className="flex items-center justify-between p-4 w-full text-left hover:bg-secondary/50 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                  <Bell className="w-5 h-5 text-primary" />
+                </div>
+                <div>
+                  <p className="font-medium text-foreground">Enable Notifications</p>
+                  <p className="text-sm text-muted-foreground">Tap to enable reminders</p>
+                </div>
+              </div>
+              <ChevronRight className="w-5 h-5 text-muted-foreground" />
+            </button>
+          )}
+          
           <div className="flex items-center justify-between p-4">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-secondary flex items-center justify-center">
@@ -547,8 +573,17 @@ const Settings = () => {
             </div>
             <Switch
               checked={notificationPermissionGranted && (preferences?.vaccinationRemindersEnabled ?? true)}
-              onCheckedChange={(checked) => updatePreference('vaccinationRemindersEnabled', checked)}
-              disabled={!notificationPermissionGranted}
+              onCheckedChange={async (checked) => {
+                if (!notificationPermissionGranted) {
+                  const granted = await requestNotificationPermission();
+                  if (granted) {
+                    setNotificationPermissionGranted(true);
+                    updatePreference('vaccinationRemindersEnabled', checked);
+                  }
+                } else {
+                  updatePreference('vaccinationRemindersEnabled', checked);
+                }
+              }}
             />
           </div>
           <div className="flex items-center justify-between p-4">
@@ -563,8 +598,17 @@ const Settings = () => {
             </div>
             <Switch
               checked={notificationPermissionGranted && (preferences?.medicineRemindersEnabled ?? true)}
-              onCheckedChange={(checked) => updatePreference('medicineRemindersEnabled', checked)}
-              disabled={!notificationPermissionGranted}
+              onCheckedChange={async (checked) => {
+                if (!notificationPermissionGranted) {
+                  const granted = await requestNotificationPermission();
+                  if (granted) {
+                    setNotificationPermissionGranted(true);
+                    updatePreference('medicineRemindersEnabled', checked);
+                  }
+                } else {
+                  updatePreference('medicineRemindersEnabled', checked);
+                }
+              }}
             />
           </div>
           <div className="flex items-center justify-between p-4">
@@ -579,8 +623,17 @@ const Settings = () => {
             </div>
             <Switch
               checked={notificationPermissionGranted && (preferences?.feedingRemindersEnabled ?? true)}
-              onCheckedChange={(checked) => updatePreference('feedingRemindersEnabled', checked)}
-              disabled={!notificationPermissionGranted}
+              onCheckedChange={async (checked) => {
+                if (!notificationPermissionGranted) {
+                  const granted = await requestNotificationPermission();
+                  if (granted) {
+                    setNotificationPermissionGranted(true);
+                    updatePreference('feedingRemindersEnabled', checked);
+                  }
+                } else {
+                  updatePreference('feedingRemindersEnabled', checked);
+                }
+              }}
             />
           </div>
         </Card>
