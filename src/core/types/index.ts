@@ -41,10 +41,15 @@ export interface VaccinationEntry {
 }
 
 // ============ Feeding Types ============
+export type FeedingType = 'breast_milk' | 'formula' | 'solid_food' | 'water' | 'other';
+
+export type QuantityUnit = 'ml' | 'oz' | 'cups' | 'tbsp' | 'minutes';
+
 export interface FeedingSchedule {
   id: string;
   profileId: string;
   feedingName: string;
+  feedingType: FeedingType;
   reminderType: 'time' | 'interval';
   reminderTime?: string; // HH:mm format for fixed time
   intervalHours?: number;
@@ -55,12 +60,27 @@ export interface FeedingSchedule {
 
 export interface FeedingLog {
   id: string;
-  scheduleId: string;
+  scheduleId?: string; // Optional - can log without schedule
   profileId: string;
+  feedingType: FeedingType;
+  quantity?: number;
+  quantityUnit?: QuantityUnit;
+  durationMinutes?: number; // For breastfeeding
+  notes?: string;
   completedAt: string;
   snoozed: boolean;
   snoozeUntil?: string;
   createdAt: string;
+}
+
+export interface FeedingStatistics {
+  totalFeedingsToday: number;
+  totalFeedingsWeek: number;
+  averageFeedingsPerDay: number;
+  mostCommonType: FeedingType | null;
+  totalQuantityToday: { [key in QuantityUnit]?: number };
+  averageInterval: number | null; // in hours
+  feedingsByType: { [key in FeedingType]?: number };
 }
 
 // ============ Medicine Types ============
