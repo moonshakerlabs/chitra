@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { 
   Globe, 
@@ -23,7 +23,8 @@ import {
   Baby,
   Calendar,
   Bell,
-  ExternalLink
+  ExternalLink,
+  FileText
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -65,6 +66,8 @@ import {
 import ProfileEditModal from '@/profiles/ProfileEditModal';
 import { PinSetupScreen, ChangePinScreen } from '@/security';
 import { Capacitor } from '@capacitor/core';
+import PrivacyPolicyScreen from './PrivacyPolicyScreen';
+import FolderSelectSAF from '@/onboarding/FolderSelectSAF';
 
 const countries: Array<{ code: CountryCode; name: string; flag: string }> = [
   { code: 'USA', name: 'United States', flag: '🇺🇸' },
@@ -105,6 +108,8 @@ const Settings = () => {
   const [showPinSetup, setShowPinSetup] = useState(false);
   const [showChangePin, setShowChangePin] = useState(false);
   const [showChangeFolderDialog, setShowChangeFolderDialog] = useState(false);
+  const [showFolderPicker, setShowFolderPicker] = useState(false);
+  const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(false);
   const [pinEnabled, setPinEnabled] = useState(false);
   const [storageFolderPath, setStorageFolderPath] = useState<string | null>(null);
   const [exportDataType, setExportDataType] = useState<ExportDataTypeExtended>('all');
@@ -114,7 +119,7 @@ const Settings = () => {
   const [importType, setImportType] = useState<'json' | 'csv'>('json');
   
   // Notification permission state
-  const [notificationPermissionGranted, setNotificationPermissionGranted] = useState(true);
+  const [notificationPermissionGranted, setNotificationPermissionGranted] = useState(false);
   const [notificationPermissionDenied, setNotificationPermissionDenied] = useState(false);
   
   const { toast } = useToast();
@@ -143,11 +148,27 @@ const Settings = () => {
     setStorageFolderPath(path);
   };
 
-  const checkNotificationStatus = async () => {
+  // Check notification status - this needs to be a callback that re-checks
+  const checkNotificationStatus = useCallback(async () => {
     const status = await checkNotificationPermission();
     setNotificationPermissionGranted(status.granted);
     setNotificationPermissionDenied(status.deniedPermanently);
-  };
+  }, []);
+
+  // Re-check notification status when component mounts and when it becomes visible
+  useEffect(() => {
+    checkNotificationStatus();
+    
+    // Also check when app becomes visible (user might have enabled notifications in settings)
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        checkNotificationStatus();
+      }
+    };
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, [checkNotificationStatus]);
 
   const handleRequestNotificationPermission = async () => {
     const granted = await requestNotificationPermission();
@@ -169,14 +190,18 @@ const Settings = () => {
 
   const handleChangeFolder = async () => {
     setShowChangeFolderDialog(false);
-    // Clear only the folder config, NOT the app data
-    await clearStorageFolderConfig();
+    // Show the folder picker instead of just clearing config
+    setShowFolderPicker(true);
+  };
+
+  const handleFolderPickerComplete = async () => {
+    setShowFolderPicker(false);
+    // Reload the storage folder path
+    await loadStorageFolder();
     toast({
-      title: 'Folder Configuration Cleared',
-      description: 'Please select a new storage folder. Your data is preserved.',
+      title: 'Folder Updated',
+      description: 'Your backup folder location has been changed.',
     });
-    // Navigate to folder selection (in onboarding flow, but skip other steps)
-    window.location.reload();
   };
 
   const updatePreference = async <K extends keyof UserPreferences>(
@@ -389,6 +414,23 @@ const Settings = () => {
       <ChangePinScreen 
         onComplete={handleChangePinComplete} 
         onCancel={() => setShowChangePin(false)} 
+      />
+    );
+  }
+
+  if (showFolderPicker) {
+    return (
+      <FolderSelectSAF 
+        onComplete={handleFolderPickerComplete}
+        isChangingLocation={true}
+      />
+    );
+  }
+
+  if (showPrivacyPolicy) {
+    return (
+      <PrivacyPolicyScreen 
+        onBack={() => setShowPrivacyPolicy(false)} 
       />
     );
   }
@@ -846,18 +888,38 @@ const Settings = () => {
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.4 }}
       >
-        <Card className="p-6 text-center">
-          <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
-            <Heart className="w-8 h-8 text-primary fill-primary" />
+        <h2 className="text-sm font-medium text-muted-foreground mb-3 uppercase tracking-wide">About</h2>
+        <Card className="divide-y divide-border">
+          <div className="p-6 text-center">
+            <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
+              <Heart className="w-8 h-8 text-primary fill-primary" />
+            </div>
+            <h3 className="text-xl font-bold text-foreground mb-1">CHITRA</h3>
+            <p className="text-sm text-muted-foreground mb-4">Version 1.0.0</p>
+            <p className="text-sm text-muted-foreground">
+              Built with <Heart className="inline w-3 h-3 text-primary fill-primary mx-1" /> by
+            </p>
+            <p className="text-sm font-medium text-foreground mt-1">
+              Moonshaker Labs
+            </p>
           </div>
-          <h3 className="text-xl font-bold text-foreground mb-1">CHITRA</h3>
-          <p className="text-sm text-muted-foreground mb-4">Version 1.0.0</p>
-          <p className="text-sm text-muted-foreground">
-            Built with <Heart className="inline w-3 h-3 text-primary fill-primary mx-1" /> by
-          </p>
-          <p className="text-sm font-medium text-foreground mt-1">
-            Moonshaker Labs
-          </p>
+          
+          {/* Privacy Policy Link */}
+          <button 
+            onClick={() => setShowPrivacyPolicy(true)}
+            className="flex items-center justify-between p-4 w-full text-left hover:bg-secondary/50 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-secondary flex items-center justify-center">
+                <FileText className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <p className="font-medium text-foreground">Privacy Policy</p>
+                <p className="text-sm text-muted-foreground">How we protect your data</p>
+              </div>
+            </div>
+            <ChevronRight className="w-5 h-5 text-muted-foreground" />
+          </button>
         </Card>
       </motion.div>
 
@@ -1110,20 +1172,20 @@ const Settings = () => {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
-              <AlertTriangle className="w-5 h-5 text-destructive" />
-              Change Storage Folder?
+              <Folder className="w-5 h-5 text-primary" />
+              Change Backup Folder?
             </AlertDialogTitle>
             <AlertDialogDescription>
-              Changing the folder will reset CHITRA data. A new database will be created from scratch. Do not change file or folder names manually.
+              You can select a new location for your CHITRA backup folder. Your app data will NOT be affected - this folder is only used for exports and file backups.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction 
               onClick={handleChangeFolder}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              className="bg-primary text-primary-foreground hover:bg-primary/90"
             >
-              Continue
+              Choose New Location
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
