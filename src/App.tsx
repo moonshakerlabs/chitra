@@ -198,6 +198,25 @@ const AppContent = () => {
     setIsLocked(false);
   };
 
+  // Show loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="animate-pulse text-primary">Loading...</div>
+      </div>
+    );
+  }
+
+  // Show onboarding if not completed
+  if (showOnboarding) {
+    return <OnboardingFlow onComplete={handleOnboardingComplete} />;
+  }
+
+  // Show lock screen if PIN is enabled and app is locked
+  if (isLocked) {
+    return <PinLockScreen onUnlock={handleUnlock} />;
+  }
+
   return (
     <ProfileProvider>
       <div className="min-h-screen bg-background">
