@@ -15,6 +15,15 @@ import {
   markMedicineTaken,
   snoozeMedicineReminder,
 } from './medicineService';
+import { scheduleMedicineReminder } from '@/core/notifications/notificationService';
+
+// Starting from options in minutes
+const startingFromMinutes: Record<string, number> = {
+  'immediately': 0,
+  '5min': 5,
+  '10min': 10,
+  '15min': 15,
+};
 
 export const useMedicineSchedules = () => {
   const { activeProfile } = useProfile();
@@ -43,7 +52,8 @@ export const useMedicineSchedules = () => {
     timesPerDay: number,
     intervalHours: number,
     totalDays?: number,
-    totalReminders?: number
+    totalReminders?: number,
+    startingFrom?: 'immediately' | '5min' | '10min' | '15min'
   ) => {
     if (!activeProfile) return null;
     const schedule = await addMedicineSchedule(
@@ -54,6 +64,14 @@ export const useMedicineSchedules = () => {
       totalDays,
       totalReminders
     );
+    
+    // Schedule first notification
+    const delayMinutes = startingFrom ? startingFromMinutes[startingFrom] : 0;
+    const firstReminderTime = new Date();
+    firstReminderTime.setMinutes(firstReminderTime.getMinutes() + delayMinutes);
+    
+    await scheduleMedicineReminder(schedule.id, medicineName, firstReminderTime);
+    
     await loadSchedules();
     return schedule;
   };

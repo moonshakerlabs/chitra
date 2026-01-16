@@ -111,3 +111,14 @@ export const resetPreferences = async (): Promise<void> => {
     createdAt: new Date().toISOString(),
   });
 };
+
+/**
+ * Reset onboarding to replay it
+ */
+export const resetOnboarding = async (): Promise<void> => {
+  await savePreferences({ 
+    onboardingCompleted: false,
+    privacyAccepted: false,
+    storageFolderAcknowledged: false,
+  });
+};
