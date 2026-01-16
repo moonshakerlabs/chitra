@@ -9,6 +9,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import type { FeedingSchedule } from '@/core/types';
 
 interface FeedingSetupModalProps {
@@ -18,7 +25,8 @@ interface FeedingSetupModalProps {
     feedingName: string,
     reminderType: 'time' | 'interval',
     reminderTime?: string,
-    intervalHours?: number
+    intervalHours?: number,
+    startingFrom?: 'immediately' | '5min' | '10min' | '15min'
   ) => Promise<void>;
   onUpdate?: (
     id: string,
@@ -26,6 +34,13 @@ interface FeedingSetupModalProps {
   ) => Promise<void>;
   editingSchedule?: FeedingSchedule | null;
 }
+
+const startingFromOptions = [
+  { value: 'immediately', label: 'Immediately', minutes: 0 },
+  { value: '5min', label: 'In 5 minutes', minutes: 5 },
+  { value: '10min', label: 'In 10 minutes', minutes: 10 },
+  { value: '15min', label: 'In 15 minutes', minutes: 15 },
+];
 
 const FeedingSetupModal = ({
   open,
@@ -37,7 +52,8 @@ const FeedingSetupModal = ({
   const [feedingName, setFeedingName] = useState('');
   const [reminderType, setReminderType] = useState<'time' | 'interval'>('interval');
   const [reminderTime, setReminderTime] = useState('08:00');
-  const [intervalHours, setIntervalHours] = useState(3);
+  const [intervalHours, setIntervalHours] = useState('3');
+  const [startingFrom, setStartingFrom] = useState<'immediately' | '5min' | '10min' | '15min'>('immediately');
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -45,17 +61,20 @@ const FeedingSetupModal = ({
       setFeedingName(editingSchedule.feedingName);
       setReminderType(editingSchedule.reminderType);
       setReminderTime(editingSchedule.reminderTime || '08:00');
-      setIntervalHours(editingSchedule.intervalHours || 3);
+      setIntervalHours(String(editingSchedule.intervalHours || 3));
     } else {
       setFeedingName('');
       setReminderType('interval');
       setReminderTime('08:00');
-      setIntervalHours(3);
+      setIntervalHours('3');
+      setStartingFrom('immediately');
     }
   }, [editingSchedule, open]);
 
   const handleSave = async () => {
     if (!feedingName.trim()) return;
+
+    const intervalHoursNum = parseInt(intervalHours) || 3;
 
     setSaving(true);
     try {
@@ -64,14 +83,15 @@ const FeedingSetupModal = ({
           feedingName,
           reminderType,
           reminderTime: reminderType === 'time' ? reminderTime : undefined,
-          intervalHours: reminderType === 'interval' ? intervalHours : undefined,
+          intervalHours: reminderType === 'interval' ? intervalHoursNum : undefined,
         });
       } else {
         await onSave(
           feedingName,
           reminderType,
           reminderType === 'time' ? reminderTime : undefined,
-          reminderType === 'interval' ? intervalHours : undefined
+          reminderType === 'interval' ? intervalHoursNum : undefined,
+          startingFrom
         );
       }
       onOpenChange(false);
@@ -128,15 +148,15 @@ const FeedingSetupModal = ({
               <Label htmlFor="intervalHours">Interval (hours)</Label>
               <Input
                 id="intervalHours"
-                type="number"
-                min={1}
-                max={12}
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
                 value={intervalHours}
-                onChange={(e) => setIntervalHours(Number(e.target.value))}
+                onChange={(e) => setIntervalHours(e.target.value.replace(/[^0-9]/g, ''))}
                 className="mt-1"
               />
               <p className="text-xs text-muted-foreground mt-1">
-                Remind every {intervalHours} hour{intervalHours !== 1 ? 's' : ''}
+                Remind every {parseInt(intervalHours) || 0} hour{parseInt(intervalHours) !== 1 ? 's' : ''}
               </p>
             </div>
           ) : (
@@ -149,6 +169,31 @@ const FeedingSetupModal = ({
                 onChange={(e) => setReminderTime(e.target.value)}
                 className="mt-1"
               />
+            </div>
+          )}
+
+          {/* Starting From - Only for new schedules with interval */}
+          {!editingSchedule && reminderType === 'interval' && (
+            <div>
+              <Label>Start First Reminder</Label>
+              <Select
+                value={startingFrom}
+                onValueChange={(v) => setStartingFrom(v as typeof startingFrom)}
+              >
+                <SelectTrigger className="mt-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {startingFromOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground mt-1">
+                When should the first reminder be sent?
+              </p>
             </div>
           )}
         </div>

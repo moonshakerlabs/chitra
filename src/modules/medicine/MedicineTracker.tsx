@@ -41,6 +41,7 @@ const MedicineTracker = () => {
     intervalHours: number;
     totalDays?: number;
     totalReminders?: number;
+    startingFrom?: 'immediately' | '5min' | '10min' | '15min';
   }) => {
     if (selectedSchedule) {
       await update(selectedSchedule.id, data);
@@ -50,7 +51,8 @@ const MedicineTracker = () => {
         data.timesPerDay,
         data.intervalHours,
         data.totalDays,
-        data.totalReminders
+        data.totalReminders,
+        data.startingFrom
       );
     }
   };

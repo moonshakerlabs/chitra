@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Pill, Clock, Calendar, Hash } from 'lucide-react';
+import { Pill, Clock, Calendar, Hash, Timer } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -29,9 +29,17 @@ interface MedicineSetupModalProps {
     intervalHours: number;
     totalDays?: number;
     totalReminders?: number;
+    startingFrom?: 'immediately' | '5min' | '10min' | '15min';
   }) => Promise<void>;
   onDelete?: () => Promise<void>;
 }
+
+const startingFromOptions = [
+  { value: 'immediately', label: 'Immediately', minutes: 0 },
+  { value: '5min', label: 'In 5 minutes', minutes: 5 },
+  { value: '10min', label: 'In 10 minutes', minutes: 10 },
+  { value: '15min', label: 'In 15 minutes', minutes: 15 },
+];
 
 const MedicineSetupModal = ({
   open,
@@ -41,11 +49,12 @@ const MedicineSetupModal = ({
   onDelete,
 }: MedicineSetupModalProps) => {
   const [medicineName, setMedicineName] = useState('');
-  const [timesPerDay, setTimesPerDay] = useState(3);
-  const [intervalHours, setIntervalHours] = useState(8);
+  const [timesPerDay, setTimesPerDay] = useState('3');
+  const [intervalHours, setIntervalHours] = useState('8');
   const [endType, setEndType] = useState<'days' | 'reminders'>('days');
-  const [totalDays, setTotalDays] = useState(7);
-  const [totalReminders, setTotalReminders] = useState(21);
+  const [totalDays, setTotalDays] = useState('7');
+  const [totalReminders, setTotalReminders] = useState('21');
+  const [startingFrom, setStartingFrom] = useState<'immediately' | '5min' | '10min' | '15min'>('immediately');
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
 
@@ -54,22 +63,23 @@ const MedicineSetupModal = ({
   useEffect(() => {
     if (schedule) {
       setMedicineName(schedule.medicineName);
-      setTimesPerDay(schedule.timesPerDay);
-      setIntervalHours(schedule.intervalHours);
+      setTimesPerDay(String(schedule.timesPerDay));
+      setIntervalHours(String(schedule.intervalHours));
       if (schedule.totalDays) {
         setEndType('days');
-        setTotalDays(schedule.totalDays);
+        setTotalDays(String(schedule.totalDays));
       } else if (schedule.totalReminders) {
         setEndType('reminders');
-        setTotalReminders(schedule.totalReminders);
+        setTotalReminders(String(schedule.totalReminders));
       }
     } else {
       setMedicineName('');
-      setTimesPerDay(3);
-      setIntervalHours(8);
+      setTimesPerDay('3');
+      setIntervalHours('8');
       setEndType('days');
-      setTotalDays(7);
-      setTotalReminders(21);
+      setTotalDays('7');
+      setTotalReminders('21');
+      setStartingFrom('immediately');
     }
   }, [schedule, open]);
 
@@ -83,7 +93,12 @@ const MedicineSetupModal = ({
       return;
     }
 
-    if (timesPerDay < 1) {
+    const timesPerDayNum = parseInt(timesPerDay) || 1;
+    const intervalHoursNum = parseInt(intervalHours) || 1;
+    const totalDaysNum = parseInt(totalDays) || 0;
+    const totalRemindersNum = parseInt(totalReminders) || 0;
+
+    if (timesPerDayNum < 1) {
       toast({
         title: 'Invalid Times Per Day',
         description: 'Please enter a value of 1 or more',
@@ -92,7 +107,7 @@ const MedicineSetupModal = ({
       return;
     }
 
-    if (intervalHours < 1) {
+    if (intervalHoursNum < 1) {
       toast({
         title: 'Invalid Interval',
         description: 'Please enter an interval of 1 hour or more',
@@ -105,10 +120,11 @@ const MedicineSetupModal = ({
     try {
       await onSave({
         medicineName: medicineName.trim(),
-        timesPerDay,
-        intervalHours,
-        totalDays: endType === 'days' ? totalDays : undefined,
-        totalReminders: endType === 'reminders' ? totalReminders : undefined,
+        timesPerDay: timesPerDayNum,
+        intervalHours: intervalHoursNum,
+        totalDays: endType === 'days' && totalDaysNum > 0 ? totalDaysNum : undefined,
+        totalReminders: endType === 'reminders' && totalRemindersNum > 0 ? totalRemindersNum : undefined,
+        startingFrom: isEditMode ? undefined : startingFrom,
       });
       toast({
         title: isEditMode ? 'Medicine Updated' : 'Medicine Added',
@@ -170,37 +186,67 @@ const MedicineSetupModal = ({
             />
           </div>
 
-          {/* Times Per Day - No upper limit now */}
+          {/* Times Per Day */}
           <div>
             <Label className="text-sm font-medium mb-2 block">
               <Hash className="inline w-4 h-4 mr-1" />
               Times Per Day
             </Label>
             <Input
-              type="number"
-              min={1}
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
               value={timesPerDay}
-              onChange={(e) => setTimesPerDay(parseInt(e.target.value) || 1)}
+              onChange={(e) => setTimesPerDay(e.target.value.replace(/[^0-9]/g, ''))}
               placeholder="e.g., 3"
             />
           </div>
 
-          {/* Interval Hours - No upper limit now */}
+          {/* Interval Hours */}
           <div>
             <Label className="text-sm font-medium mb-2 block">
               <Clock className="inline w-4 h-4 mr-1" />
               Time Gap Between Reminders (hours)
             </Label>
             <Input
-              type="number"
-              min={1}
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
               value={intervalHours}
-              onChange={(e) => setIntervalHours(parseInt(e.target.value) || 1)}
+              onChange={(e) => setIntervalHours(e.target.value.replace(/[^0-9]/g, ''))}
               placeholder="e.g., 8"
             />
           </div>
 
-          {/* End Condition - No upper limits now */}
+          {/* Starting From - Only for new schedules */}
+          {!isEditMode && (
+            <div>
+              <Label className="text-sm font-medium mb-2 block">
+                <Timer className="inline w-4 h-4 mr-1" />
+                Start First Reminder
+              </Label>
+              <Select
+                value={startingFrom}
+                onValueChange={(v) => setStartingFrom(v as typeof startingFrom)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {startingFromOptions.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground mt-1">
+                When should the first reminder be sent?
+              </p>
+            </div>
+          )}
+
+          {/* End Condition */}
           <div>
             <Label className="text-sm font-medium mb-2 block">
               <Calendar className="inline w-4 h-4 mr-1" />
@@ -220,11 +266,12 @@ const MedicineSetupModal = ({
                 </SelectContent>
               </Select>
               <Input
-                type="number"
-                min={1}
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
                 value={endType === 'days' ? totalDays : totalReminders}
                 onChange={(e) => {
-                  const val = parseInt(e.target.value) || 1;
+                  const val = e.target.value.replace(/[^0-9]/g, '');
                   if (endType === 'days') {
                     setTotalDays(val);
                   } else {

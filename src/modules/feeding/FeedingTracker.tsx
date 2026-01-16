@@ -31,9 +31,10 @@ const FeedingTracker = () => {
     feedingName: string,
     reminderType: 'time' | 'interval',
     reminderTime?: string,
-    intervalHours?: number
+    intervalHours?: number,
+    startingFrom?: 'immediately' | '5min' | '10min' | '15min'
   ) => {
-    await add(feedingName, reminderType, reminderTime, intervalHours);
+    await add(feedingName, reminderType, reminderTime, intervalHours, 'breast_milk', startingFrom);
     toast({
       title: 'Schedule Added',
       description: `${feedingName} feeding schedule created`,

@@ -24,7 +24,8 @@ import {
   Calendar,
   Bell,
   ExternalLink,
-  FileText
+  FileText,
+  PlayCircle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -38,6 +39,7 @@ import {
   isPinEnabled,
   disablePin
 } from '@/core/storage';
+import { resetOnboarding } from '@/core/storage/preferences';
 import { exportDataMobile, isNativePlatform } from '@/core/export/mobileExport';
 import { importFromJSON, importFromCSV } from '@/core/export';
 import { useProfile } from '@/core/context/ProfileContext';
@@ -100,6 +102,7 @@ const Settings = () => {
   const [loading, setLoading] = useState(true);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showResetDialog, setShowResetDialog] = useState(false);
+  const [showReplayOnboardingDialog, setShowReplayOnboardingDialog] = useState(false);
   const [showCountryDialog, setShowCountryDialog] = useState(false);
   const [showLanguageDialog, setShowLanguageDialog] = useState(false);
   const [showExportDialog, setShowExportDialog] = useState(false);
@@ -397,6 +400,16 @@ const Settings = () => {
       description: "CHITRA has been reset to default settings.",
     });
     setShowResetDialog(false);
+    window.location.reload();
+  };
+
+  const handleReplayOnboarding = async () => {
+    await resetOnboarding();
+    toast({
+      title: "Onboarding Reset",
+      description: "Restarting onboarding flow...",
+    });
+    setShowReplayOnboardingDialog(false);
     window.location.reload();
   };
 
@@ -920,6 +933,23 @@ const Settings = () => {
             </div>
             <ChevronRight className="w-5 h-5 text-muted-foreground" />
           </button>
+          
+          {/* Replay Onboarding */}
+          <button 
+            onClick={() => setShowReplayOnboardingDialog(true)}
+            className="flex items-center justify-between p-4 w-full text-left hover:bg-secondary/50 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-secondary flex items-center justify-center">
+                <PlayCircle className="w-5 h-5 text-primary" />
+              </div>
+              <div>
+                <p className="font-medium text-foreground">Replay Onboarding</p>
+                <p className="text-sm text-muted-foreground">Go through the setup again</p>
+              </div>
+            </div>
+            <ChevronRight className="w-5 h-5 text-muted-foreground" />
+          </button>
         </Card>
       </motion.div>
 
@@ -1186,6 +1216,30 @@ const Settings = () => {
               className="bg-primary text-primary-foreground hover:bg-primary/90"
             >
               Choose New Location
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Replay Onboarding Dialog */}
+      <AlertDialog open={showReplayOnboardingDialog} onOpenChange={setShowReplayOnboardingDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <PlayCircle className="w-5 h-5 text-primary" />
+              Replay Onboarding?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This will restart the onboarding flow where you can review country, language, and folder settings. Your data will NOT be deleted.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={handleReplayOnboarding}
+              className="bg-primary text-primary-foreground hover:bg-primary/90"
+            >
+              Start Onboarding
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

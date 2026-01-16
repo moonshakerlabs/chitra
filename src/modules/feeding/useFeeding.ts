@@ -14,6 +14,15 @@ import {
   createFeedingLog,
   snoozeFeedingReminder,
 } from './feedingService';
+import { scheduleFeedingReminder } from '@/core/notifications/notificationService';
+
+// Starting from options in minutes
+const startingFromMinutes: Record<string, number> = {
+  'immediately': 0,
+  '5min': 5,
+  '10min': 10,
+  '15min': 15,
+};
 
 /**
  * Hook for managing feeding schedules
@@ -49,7 +58,8 @@ export const useFeedingSchedules = () => {
     reminderType: 'time' | 'interval',
     reminderTime?: string,
     intervalHours?: number,
-    feedingType: 'breast_milk' | 'formula' | 'solid_food' | 'water' | 'other' = 'breast_milk'
+    feedingType: 'breast_milk' | 'formula' | 'solid_food' | 'water' | 'other' = 'breast_milk',
+    startingFrom?: 'immediately' | '5min' | '10min' | '15min'
   ) => {
     if (!activeProfile) return null;
 
@@ -63,6 +73,26 @@ export const useFeedingSchedules = () => {
         intervalHours,
         isActive: true,
       });
+      
+      // Schedule first notification
+      let firstReminderTime = new Date();
+      
+      if (reminderType === 'time' && reminderTime) {
+        // For specific time, schedule at that time
+        const [hours, minutes] = reminderTime.split(':').map(Number);
+        firstReminderTime.setHours(hours, minutes, 0, 0);
+        // If time has passed today, schedule for tomorrow
+        if (firstReminderTime <= new Date()) {
+          firstReminderTime.setDate(firstReminderTime.getDate() + 1);
+        }
+      } else if (reminderType === 'interval' && intervalHours) {
+        // For interval, add starting from delay + interval
+        const delayMinutes = startingFrom ? startingFromMinutes[startingFrom] : 0;
+        firstReminderTime.setMinutes(firstReminderTime.getMinutes() + delayMinutes);
+      }
+      
+      await scheduleFeedingReminder(schedule.id, feedingName, activeProfile.id, firstReminderTime);
+      
       await loadSchedules();
       return schedule;
     } catch (error) {
