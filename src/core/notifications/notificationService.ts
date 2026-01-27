@@ -7,7 +7,7 @@ import {
   scheduleWebNotification,
   cancelWebNotification,
   cancelAllWebNotifications,
-  getWebNotificationPermission,
+  showWebNotification,
 } from './webNotificationService';
 
 export interface NotificationSettings {
@@ -28,37 +28,61 @@ const generateNotificationId = (entityId: string): number => {
 };
 
 /**
- * Check if notifications are supported (native or web)
+ * Check if running on native platform
+ * Works even when using remote server URL in capacitor config
  */
-export const isNotificationsSupported = (): boolean => {
-  return Capacitor.isNativePlatform() || isWebNotificationsSupported();
+export const isNativePlatform = (): boolean => {
+  // Check multiple indicators for native platform
+  const capacitorNative = Capacitor.isNativePlatform();
+  const hasNativeBridge = !!(window as any).Capacitor?.isNativePlatform?.();
+  const isAndroid = Capacitor.getPlatform() === 'android';
+  const isIOS = Capacitor.getPlatform() === 'ios';
+  
+  return capacitorNative || hasNativeBridge || isAndroid || isIOS;
 };
 
 /**
- * Check if running on native platform
+ * Check if notifications are supported (native or web)
  */
-export const isNativePlatform = (): boolean => {
-  return Capacitor.isNativePlatform();
+export const isNotificationsSupported = (): boolean => {
+  return isNativePlatform() || isWebNotificationsSupported();
 };
 
 /**
  * Initialize notifications and request permissions
  */
 export const initializeNotifications = async (): Promise<boolean> => {
-  if (Capacitor.isNativePlatform()) {
+  console.log('[Notifications] Initializing... Platform:', Capacitor.getPlatform(), 'Native:', isNativePlatform());
+  
+  if (isNativePlatform()) {
     try {
+      // First check current permission status
+      const currentStatus = await LocalNotifications.checkPermissions();
+      console.log('[Notifications] Current permission status:', currentStatus.display);
+      
+      if (currentStatus.display === 'granted') {
+        return true;
+      }
+      
+      // Request permission if not granted
       const permission = await LocalNotifications.requestPermissions();
+      console.log('[Notifications] Permission request result:', permission.display);
       return permission.display === 'granted';
     } catch (error) {
-      console.error('Failed to initialize native notifications:', error);
+      console.error('[Notifications] Failed to initialize native notifications:', error);
+      // Fall back to web notifications
+      if (isWebNotificationsSupported()) {
+        console.log('[Notifications] Falling back to web notifications');
+        return await requestWebNotificationPermission();
+      }
       return false;
     }
   } else if (isWebNotificationsSupported()) {
-    console.log('Using web notifications fallback');
+    console.log('[Notifications] Using web notifications fallback');
     return await requestWebNotificationPermission();
   }
   
-  console.log('Notifications not supported on this platform');
+  console.log('[Notifications] Notifications not supported on this platform');
   return false;
 };
 
@@ -98,21 +122,28 @@ export const scheduleVaccinationReminder = async (
     doctorName,
   };
 
-  if (Capacitor.isNativePlatform()) {
+  if (isNativePlatform()) {
     try {
       await LocalNotifications.schedule({
         notifications: [{
           id: notificationId,
           title,
           body,
-          schedule: { at: scheduleDate },
+          schedule: { 
+            at: scheduleDate,
+            allowWhileIdle: true, // Required for Android Doze mode
+          },
           actionTypeId: 'VACCINATION_ACTION',
           extra,
+          smallIcon: 'ic_stat_icon_config_sample',
+          iconColor: '#E91E63',
         }],
       });
-      console.log(`Native vaccination reminder scheduled for ${scheduleDate.toLocaleString()}`);
+      console.log(`[Notifications] Native vaccination reminder scheduled for ${scheduleDate.toLocaleString()}`);
     } catch (error) {
-      console.error('Failed to schedule native vaccination reminder:', error);
+      console.error('[Notifications] Failed to schedule native vaccination reminder:', error);
+      // Fallback to web notification
+      scheduleWebNotification(notificationId, title, body, scheduleDate, extra);
     }
   } else {
     // Use web notifications
@@ -146,21 +177,27 @@ export const scheduleVaccinationFollowUp = async (
     doctorName,
   };
 
-  if (Capacitor.isNativePlatform()) {
+  if (isNativePlatform()) {
     try {
       await LocalNotifications.schedule({
         notifications: [{
           id: notificationId,
           title,
           body,
-          schedule: { at: scheduleDate },
+          schedule: { 
+            at: scheduleDate,
+            allowWhileIdle: true,
+          },
           actionTypeId: 'VACCINATION_ACTION',
           extra,
+          smallIcon: 'ic_stat_icon_config_sample',
+          iconColor: '#E91E63',
         }],
       });
-      console.log(`Native vaccination follow-up scheduled for ${scheduleDate.toLocaleString()}`);
+      console.log(`[Notifications] Native vaccination follow-up scheduled for ${scheduleDate.toLocaleString()}`);
     } catch (error) {
-      console.error('Failed to schedule native vaccination follow-up:', error);
+      console.error('[Notifications] Failed to schedule native vaccination follow-up:', error);
+      scheduleWebNotification(notificationId, title, body, scheduleDate, extra);
     }
   } else {
     scheduleWebNotification(notificationId, title, body, scheduleDate, extra);
@@ -192,21 +229,27 @@ export const scheduleMedicineReminder = async (
     medicineName,
   };
 
-  if (Capacitor.isNativePlatform()) {
+  if (isNativePlatform()) {
     try {
       await LocalNotifications.schedule({
         notifications: [{
           id: notificationId,
           title,
           body,
-          schedule: { at: reminderTime },
+          schedule: { 
+            at: reminderTime,
+            allowWhileIdle: true,
+          },
           actionTypeId: 'MEDICINE_ACTION',
           extra,
+          smallIcon: 'ic_stat_icon_config_sample',
+          iconColor: '#E91E63',
         }],
       });
-      console.log(`Native medicine reminder scheduled for ${reminderTime.toLocaleString()}`);
+      console.log(`[Notifications] Native medicine reminder scheduled for ${reminderTime.toLocaleString()}`);
     } catch (error) {
-      console.error('Failed to schedule native medicine reminder:', error);
+      console.error('[Notifications] Failed to schedule native medicine reminder:', error);
+      scheduleWebNotification(notificationId, title, body, reminderTime, extra);
     }
   } else {
     scheduleWebNotification(notificationId, title, body, reminderTime, extra);
@@ -235,21 +278,27 @@ export const scheduleMedicineFollowUp = async (
     medicineName,
   };
 
-  if (Capacitor.isNativePlatform()) {
+  if (isNativePlatform()) {
     try {
       await LocalNotifications.schedule({
         notifications: [{
           id: notificationId,
           title,
           body,
-          schedule: { at: scheduleDate },
+          schedule: { 
+            at: scheduleDate,
+            allowWhileIdle: true,
+          },
           actionTypeId: 'MEDICINE_ACTION',
           extra,
+          smallIcon: 'ic_stat_icon_config_sample',
+          iconColor: '#E91E63',
         }],
       });
-      console.log(`Native medicine follow-up scheduled for ${scheduleDate.toLocaleString()}`);
+      console.log(`[Notifications] Native medicine follow-up scheduled for ${scheduleDate.toLocaleString()}`);
     } catch (error) {
-      console.error('Failed to schedule native medicine follow-up:', error);
+      console.error('[Notifications] Failed to schedule native medicine follow-up:', error);
+      scheduleWebNotification(notificationId, title, body, scheduleDate, extra);
     }
   } else {
     scheduleWebNotification(notificationId, title, body, scheduleDate, extra);
@@ -283,21 +332,27 @@ export const scheduleFeedingReminder = async (
     profileId,
   };
 
-  if (Capacitor.isNativePlatform()) {
+  if (isNativePlatform()) {
     try {
       await LocalNotifications.schedule({
         notifications: [{
           id: notificationId,
           title,
           body,
-          schedule: { at: reminderTime },
+          schedule: { 
+            at: reminderTime,
+            allowWhileIdle: true,
+          },
           actionTypeId: 'FEEDING_ACTION',
           extra,
+          smallIcon: 'ic_stat_icon_config_sample',
+          iconColor: '#E91E63',
         }],
       });
-      console.log(`Native feeding reminder scheduled for ${reminderTime.toLocaleString()}`);
+      console.log(`[Notifications] Native feeding reminder scheduled for ${reminderTime.toLocaleString()}`);
     } catch (error) {
-      console.error('Failed to schedule native feeding reminder:', error);
+      console.error('[Notifications] Failed to schedule native feeding reminder:', error);
+      scheduleWebNotification(notificationId, title, body, reminderTime, extra);
     }
   } else {
     scheduleWebNotification(notificationId, title, body, reminderTime, extra);
@@ -310,11 +365,11 @@ export const scheduleFeedingReminder = async (
 export const cancelNotification = async (notificationId: number): Promise<void> => {
   if (!isNotificationsSupported()) return;
 
-  if (Capacitor.isNativePlatform()) {
+  if (isNativePlatform()) {
     try {
       await LocalNotifications.cancel({ notifications: [{ id: notificationId }] });
     } catch (error) {
-      console.error('Failed to cancel native notification:', error);
+      console.error('[Notifications] Failed to cancel native notification:', error);
     }
   } else {
     cancelWebNotification(notificationId);
@@ -335,14 +390,15 @@ export const cancelNotificationByEntityId = async (entityId: string): Promise<vo
 export const cancelAllNotifications = async (): Promise<void> => {
   if (!isNotificationsSupported()) return;
 
-  if (Capacitor.isNativePlatform()) {
+  if (isNativePlatform()) {
     try {
       const pending = await LocalNotifications.getPending();
+      console.log(`[Notifications] Cancelling ${pending.notifications.length} pending notifications`);
       if (pending.notifications.length > 0) {
         await LocalNotifications.cancel({ notifications: pending.notifications });
       }
     } catch (error) {
-      console.error('Failed to cancel all native notifications:', error);
+      console.error('[Notifications] Failed to cancel all native notifications:', error);
     }
   } else {
     cancelAllWebNotifications();
@@ -356,7 +412,7 @@ export const registerNotificationActions = async (): Promise<void> => {
   if (!isNotificationsSupported()) return;
 
   // Only register action types on native platforms
-  if (Capacitor.isNativePlatform()) {
+  if (isNativePlatform()) {
     try {
       await LocalNotifications.registerActionTypes({
         types: [
@@ -384,8 +440,9 @@ export const registerNotificationActions = async (): Promise<void> => {
           },
         ],
       });
+      console.log('[Notifications] Action types registered successfully');
     } catch (error) {
-      console.error('Failed to register notification actions:', error);
+      console.error('[Notifications] Failed to register notification actions:', error);
     }
   }
   // Web notifications don't support action types, but the click handler is set up
@@ -399,8 +456,9 @@ export const addNotificationActionListener = (
 ): void => {
   if (!isNotificationsSupported()) return;
 
-  if (Capacitor.isNativePlatform()) {
+  if (isNativePlatform()) {
     LocalNotifications.addListener('localNotificationActionPerformed', callback);
+    console.log('[Notifications] Action listener registered');
   }
   // Web notification clicks are handled via the 'web-notification-click' custom event
 };
@@ -411,9 +469,73 @@ export const addNotificationActionListener = (
 export const removeAllNotificationListeners = async (): Promise<void> => {
   if (!isNotificationsSupported()) return;
 
-  if (Capacitor.isNativePlatform()) {
+  if (isNativePlatform()) {
     await LocalNotifications.removeAllListeners();
   }
+};
+
+/**
+ * Test notification - fires immediately for debugging
+ */
+export const sendTestNotification = async (): Promise<boolean> => {
+  console.log('[Notifications] Sending test notification...');
+  console.log('[Notifications] Platform:', Capacitor.getPlatform());
+  console.log('[Notifications] isNativePlatform:', isNativePlatform());
+  
+  if (isNativePlatform()) {
+    try {
+      // Check current permission
+      const permStatus = await LocalNotifications.checkPermissions();
+      console.log('[Notifications] Permission status:', permStatus.display);
+      
+      if (permStatus.display !== 'granted') {
+        const requestResult = await LocalNotifications.requestPermissions();
+        console.log('[Notifications] Permission request result:', requestResult.display);
+        if (requestResult.display !== 'granted') {
+          console.log('[Notifications] Permission denied, using web fallback');
+          showWebNotification('Test Notification', 'Notifications are working! (Web fallback)', { type: 'test' });
+          return true;
+        }
+      }
+      
+      // Schedule notification for 3 seconds from now
+      const scheduleTime = new Date(Date.now() + 3000);
+      const notificationId = Math.floor(Math.random() * 100000);
+      
+      await LocalNotifications.schedule({
+        notifications: [{
+          id: notificationId,
+          title: 'Test Notification',
+          body: 'Notifications are working correctly!',
+          schedule: {
+            at: scheduleTime,
+            allowWhileIdle: true,
+          },
+          smallIcon: 'ic_stat_icon_config_sample',
+          iconColor: '#E91E63',
+        }],
+      });
+      
+      console.log('[Notifications] Test notification scheduled for:', scheduleTime.toLocaleString());
+      
+      // Also list pending notifications
+      const pending = await LocalNotifications.getPending();
+      console.log('[Notifications] Pending notifications:', pending.notifications.length);
+      
+      return true;
+    } catch (error) {
+      console.error('[Notifications] Failed to send test notification:', error);
+      // Fallback to web
+      showWebNotification('Test Notification', 'Notifications working! (Web fallback)', { type: 'test' });
+      return true;
+    }
+  } else if (isWebNotificationsSupported()) {
+    showWebNotification('Test Notification', 'Notifications are working correctly!', { type: 'test' });
+    return true;
+  }
+  
+  console.log('[Notifications] No notification method available');
+  return false;
 };
 
 // checkNotificationPermission is exported from permissionService.ts
