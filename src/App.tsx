@@ -13,6 +13,7 @@ import { WeightTracker } from "./modules/weight";
 import { VaccinationTracker } from "./modules/vaccination";
 import { MedicineTracker } from "./modules/medicine";
 import { FeedingTracker } from "./modules/feeding";
+import { ScreenTimeTracker } from "./modules/screentime";
 import Settings from "./settings/Settings";
 import BottomNav from "./shared/components/BottomNav";
 import NotFound from "./pages/NotFound";
@@ -228,6 +229,7 @@ const AppContent = () => {
             <Route path="/vaccination" element={<VaccinationTracker />} />
             <Route path="/medicine" element={<MedicineTracker />} />
             <Route path="/feeding" element={<FeedingTracker />} />
+            <Route path="/screentime" element={<ScreenTimeTracker />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="*" element={<NotFound />} />
           </Routes>

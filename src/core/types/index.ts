@@ -239,6 +239,20 @@ export interface PaymentInfo {
   };
 }
 
+// ============ Screen Time Types ============
+export interface ScreenTimeEntry {
+  id: string;
+  profileId: string;
+  weekNumber: number; // ISO week number (1-53)
+  year: number;
+  weekStartDate: string; // Sunday (ISO date)
+  weekEndDate: string; // Saturday (ISO date)
+  totalMinutes: number;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 // ============ Export/Import Types ============
 export type ExportFormat = 'csv' | 'json';
 
