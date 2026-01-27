@@ -56,6 +56,9 @@ export const useMedicineSchedules = () => {
     startingFrom?: 'immediately' | '5min' | '10min' | '15min'
   ) => {
     if (!activeProfile) return null;
+    
+    console.log('[Medicine] Adding schedule:', { medicineName, timesPerDay, intervalHours, startingFrom });
+    
     const schedule = await addMedicineSchedule(
       activeProfile.id,
       medicineName,
@@ -66,9 +69,16 @@ export const useMedicineSchedules = () => {
     );
     
     // Schedule first notification
-    const delayMinutes = startingFrom ? startingFromMinutes[startingFrom] : 0;
+    const delayMinutes = startingFrom ? startingFromMinutes[startingFrom] : intervalHours * 60;
     const firstReminderTime = new Date();
     firstReminderTime.setMinutes(firstReminderTime.getMinutes() + delayMinutes);
+    
+    console.log('[Medicine] Scheduling first reminder:', {
+      scheduleId: schedule.id,
+      medicineName,
+      delayMinutes,
+      firstReminderTime: firstReminderTime.toLocaleString()
+    });
     
     await scheduleMedicineReminder(schedule.id, medicineName, firstReminderTime);
     
