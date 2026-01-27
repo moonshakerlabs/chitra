@@ -513,6 +513,93 @@ export const registerNotificationActions = async (): Promise<void> => {
 };
 
 /**
+ * Schedule a cycle reminder notification (7 days before predicted next cycle)
+ */
+export const scheduleCycleReminder = async (
+  profileId: string,
+  predictedStartDate: string,
+  profileName: string = 'User'
+): Promise<void> => {
+  console.log(`[Notifications] scheduleCycleReminder called for ${profileName}`);
+  console.log(`[Notifications] Predicted start date: ${predictedStartDate}`);
+  
+  if (!isNotificationsSupported()) {
+    console.log('[Notifications] Notifications not supported');
+    return;
+  }
+
+  // Schedule 7 days before the predicted start
+  const predictedDate = new Date(predictedStartDate);
+  const reminderDate = new Date(predictedDate);
+  reminderDate.setDate(reminderDate.getDate() - 7);
+  reminderDate.setHours(9, 0, 0, 0); // 9 AM
+
+  // Don't schedule if the reminder date is in the past
+  if (reminderDate <= new Date()) {
+    console.log('[Notifications] Reminder date is in the past, skipping');
+    return;
+  }
+
+  const notificationId = generateNotificationId(profileId + '_cycle_reminder');
+  
+  // Cancel any existing cycle reminder for this profile
+  await cancelNotification(notificationId);
+
+  const title = `Cycle Reminder`;
+  const body = `Your period may start in about 7 days. Stay hydrated, rest well, and prepare with essentials for a comfortable cycle.`;
+  const extra = {
+    type: 'cycle_reminder',
+    profileId,
+    profileName,
+    predictedStartDate,
+  };
+
+  if (isNativePlatform()) {
+    try {
+      const permStatus = await LocalNotifications.checkPermissions();
+      if (permStatus.display !== 'granted') {
+        const result = await LocalNotifications.requestPermissions();
+        if (result.display !== 'granted') {
+          scheduleWebNotification(notificationId, title, body, reminderDate, extra);
+          return;
+        }
+      }
+      
+      await LocalNotifications.schedule({
+        notifications: [{
+          id: notificationId,
+          title,
+          body,
+          schedule: { 
+            at: reminderDate,
+            allowWhileIdle: true,
+          },
+          extra,
+          smallIcon: 'ic_stat_icon_config_sample',
+          iconColor: '#E91E63',
+        }],
+      });
+      
+      console.log(`[Notifications] Cycle reminder scheduled for ${reminderDate.toLocaleString()}`);
+      
+    } catch (error) {
+      console.error('[Notifications] Failed to schedule native cycle reminder:', error);
+      scheduleWebNotification(notificationId, title, body, reminderDate, extra);
+    }
+  } else {
+    scheduleWebNotification(notificationId, title, body, reminderDate, extra);
+  }
+};
+
+/**
+ * Cancel cycle reminder for a profile
+ */
+export const cancelCycleReminder = async (profileId: string): Promise<void> => {
+  const notificationId = generateNotificationId(profileId + '_cycle_reminder');
+  await cancelNotification(notificationId);
+};
+
+/**
  * Add listener for notification actions
  */
 export const addNotificationActionListener = (

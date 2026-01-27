@@ -10,6 +10,7 @@ import {
   endCycleToday
 } from './cycleService';
 import { useProfile } from '@/core/context/ProfileContext';
+import { scheduleCycleReminder, cancelCycleReminder } from '@/core/notifications';
 import type { CycleEntry, CycleInsights, MoodType, PainLevel } from '@/core/types';
 
 export const useCycles = () => {
@@ -132,7 +133,24 @@ export const useCycleInsights = () => {
     const data = await getCycleInsights(activeProfile.id);
     setInsights(data);
     setLoading(false);
-  }, [activeProfile?.id]);
+    
+    // Schedule cycle reminder if we have a valid prediction
+    if (data.nextPredictedStart && activeProfile.mode !== 'pregnant' && activeProfile.mode !== 'no_menstrual') {
+      try {
+        await scheduleCycleReminder(
+          activeProfile.id,
+          data.nextPredictedStart,
+          activeProfile.name
+        );
+        console.log('[Cycle] Reminder scheduled for', data.nextPredictedStart);
+      } catch (error) {
+        console.error('[Cycle] Failed to schedule reminder:', error);
+      }
+    } else {
+      // Cancel any existing reminder if conditions not met
+      await cancelCycleReminder(activeProfile.id);
+    }
+  }, [activeProfile?.id, activeProfile?.mode, activeProfile?.name]);
 
   useEffect(() => {
     load();

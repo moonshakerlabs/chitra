@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
-import { Heart, Droplets, Weight, Smile, TrendingUp, Baby, Syringe, Pill, Utensils } from 'lucide-react';
+import { Heart, Droplets, Weight, Smile, TrendingUp, Baby, Syringe, Pill, Utensils, Smartphone } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
@@ -16,6 +16,8 @@ import ProfileEditModal from '@/profiles/ProfileEditModal';
 import { useToast } from '@/hooks/use-toast';
 import { differenceInYears } from 'date-fns';
 import type { Profile } from '@/core/types';
+import { useScreenTime } from '@/modules/screentime';
+import { formatScreenTime, getCurrentWeekInfo } from '@/modules/screentime/screenTimeService';
 
 const Home = () => {
   const navigate = useNavigate();
@@ -27,6 +29,11 @@ const Home = () => {
   const [showAddProfile, setShowAddProfile] = useState(false);
   const [editingProfile, setEditingProfile] = useState<Profile | undefined>(undefined);
   const { toast } = useToast();
+  const { currentWeekEntry } = useScreenTime();
+  const { weekNumber: currentWeek } = getCurrentWeekInfo();
+
+  // Check if this is the primary/main profile
+  const isPrimaryUser = activeProfile?.type === 'main';
 
   // Refresh cycle data when profile mode changes
   const refreshCycleData = useCallback(() => {
@@ -250,6 +257,18 @@ const Home = () => {
             <Pill className="w-6 h-6 text-primary" />
             <span className="text-xs font-medium">Log Medicine</span>
           </Button>
+          
+          {/* Log Screen Time - only for primary user */}
+          {isPrimaryUser && (
+            <Button
+              variant="outline"
+              className="h-20 flex-col gap-2 rounded-2xl border-2 hover:border-primary hover:bg-primary/5"
+              onClick={() => navigate('/screentime')}
+            >
+              <Smartphone className="w-6 h-6 text-primary" />
+              <span className="text-xs font-medium">Screen Time</span>
+            </Button>
+          )}
         </div>
       </motion.div>
 
@@ -446,6 +465,40 @@ const Home = () => {
           </CardContent>
         </Card>
       </motion.div>
+
+      {/* Screen Time Card - only for primary user */}
+      {isPrimaryUser && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.35 }}
+        >
+          <Card 
+            className="cursor-pointer hover:shadow-md transition-shadow"
+            onClick={() => navigate('/screentime')}
+          >
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-secondary flex items-center justify-center">
+                    <Smartphone className="w-5 h-5 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-sm text-muted-foreground">Screen Time (Week {currentWeek})</p>
+                    {currentWeekEntry ? (
+                      <p className="text-xl font-bold text-foreground">
+                        {formatScreenTime(currentWeekEntry.totalMinutes)}
+                      </p>
+                    ) : (
+                      <p className="text-lg font-semibold text-foreground">Not logged</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+      )}
 
       {/* Daily Check-in Placeholder */}
       <motion.div

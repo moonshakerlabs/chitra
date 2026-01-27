@@ -12,7 +12,8 @@ import type {
   FeedingSchedule,
   FeedingLog,
   MedicineSchedule,
-  MedicineLog
+  MedicineLog,
+  ScreenTimeEntry
 } from '../types';
 
 // Database schema
@@ -78,10 +79,15 @@ interface ChitraDB extends DBSchema {
     value: MedicineLog;
     indexes: { 'by-profile': string; 'by-schedule': string };
   };
+  screenTime: {
+    key: string;
+    value: ScreenTimeEntry;
+    indexes: { 'by-profile': string; 'by-year': number };
+  };
 }
 
 const DB_NAME = 'chitra-db';
-const DB_VERSION = 4;
+const DB_VERSION = 5;
 
 let dbInstance: IDBPDatabase<ChitraDB> | null = null;
 
@@ -186,6 +192,13 @@ export const getDatabase = async (): Promise<IDBPDatabase<ChitraDB>> => {
         const medLogStore = db.createObjectStore('medicineLogs', { keyPath: 'id' });
         medLogStore.createIndex('by-profile', 'profileId');
         medLogStore.createIndex('by-schedule', 'scheduleId');
+      }
+
+      // Screen Time store (new in v5)
+      if (!db.objectStoreNames.contains('screenTime')) {
+        const screenTimeStore = db.createObjectStore('screenTime', { keyPath: 'id' });
+        screenTimeStore.createIndex('by-profile', 'profileId');
+        screenTimeStore.createIndex('by-year', 'year');
       }
     },
   });
@@ -313,6 +326,7 @@ export const clearAllData = async (): Promise<void> => {
   await db.clear('feedingLogs');
   await db.clear('medicineSchedules');
   await db.clear('medicineLogs');
+  await db.clear('screenTime');
   // Note: preferences are NOT cleared to preserve theme/color settings
 };
 
@@ -335,6 +349,7 @@ export const clearAllDataIncludingPreferences = async (): Promise<void> => {
   await db.clear('feedingLogs');
   await db.clear('medicineSchedules');
   await db.clear('medicineLogs');
+  await db.clear('screenTime');
 };
 
 /**
@@ -352,6 +367,7 @@ export const exportAllData = async () => {
     medicineLogs: await db.getAll('medicineLogs'),
     feedingSchedules: await db.getAll('feedingSchedules'),
     feedingLogs: await db.getAll('feedingLogs'),
+    screenTime: await db.getAll('screenTime'),
     preferences: await db.get('preferences', 'user'),
     carePoints: await db.get('carePoints', 'user'),
     payment: await db.get('payment', 'user'),
