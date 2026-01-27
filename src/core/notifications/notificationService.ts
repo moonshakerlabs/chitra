@@ -1,6 +1,14 @@
 import { Capacitor } from '@capacitor/core';
-import { LocalNotifications, ScheduleOptions, ActionPerformed } from '@capacitor/local-notifications';
+import { LocalNotifications, ActionPerformed } from '@capacitor/local-notifications';
 import { getPreferences } from '@/core/storage/preferences';
+import {
+  isWebNotificationsSupported,
+  requestWebNotificationPermission,
+  scheduleWebNotification,
+  cancelWebNotification,
+  cancelAllWebNotifications,
+  getWebNotificationPermission,
+} from './webNotificationService';
 
 export interface NotificationSettings {
   vaccinationRemindersEnabled: boolean;
@@ -20,9 +28,16 @@ const generateNotificationId = (entityId: string): number => {
 };
 
 /**
- * Check if notifications are supported
+ * Check if notifications are supported (native or web)
  */
 export const isNotificationsSupported = (): boolean => {
+  return Capacitor.isNativePlatform() || isWebNotificationsSupported();
+};
+
+/**
+ * Check if running on native platform
+ */
+export const isNativePlatform = (): boolean => {
   return Capacitor.isNativePlatform();
 };
 
@@ -30,18 +45,21 @@ export const isNotificationsSupported = (): boolean => {
  * Initialize notifications and request permissions
  */
 export const initializeNotifications = async (): Promise<boolean> => {
-  if (!isNotificationsSupported()) {
-    console.log('Notifications not supported on web');
-    return false;
+  if (Capacitor.isNativePlatform()) {
+    try {
+      const permission = await LocalNotifications.requestPermissions();
+      return permission.display === 'granted';
+    } catch (error) {
+      console.error('Failed to initialize native notifications:', error);
+      return false;
+    }
+  } else if (isWebNotificationsSupported()) {
+    console.log('Using web notifications fallback');
+    return await requestWebNotificationPermission();
   }
-
-  try {
-    const permission = await LocalNotifications.requestPermissions();
-    return permission.display === 'granted';
-  } catch (error) {
-    console.error('Failed to initialize notifications:', error);
-    return false;
-  }
+  
+  console.log('Notifications not supported on this platform');
+  return false;
 };
 
 /**
@@ -68,29 +86,37 @@ export const scheduleVaccinationReminder = async (
 
   if (scheduleDate <= new Date()) return; // Don't schedule past notifications
 
-  try {
-    await LocalNotifications.schedule({
-      notifications: [
-        {
+  const title = `Vaccination Due: ${vaccineName}`;
+  const body = hospitalName 
+    ? `Time for vaccination at ${hospitalName}${doctorName ? ` with Dr. ${doctorName}` : ''}`
+    : 'Tap to mark as completed or snooze';
+  const extra = {
+    type: 'vaccination',
+    vaccinationId,
+    vaccineName,
+    hospitalName,
+    doctorName,
+  };
+
+  if (Capacitor.isNativePlatform()) {
+    try {
+      await LocalNotifications.schedule({
+        notifications: [{
           id: notificationId,
-          title: `Vaccination Due: ${vaccineName}`,
-          body: hospitalName 
-            ? `Time for vaccination at ${hospitalName}${doctorName ? ` with Dr. ${doctorName}` : ''}`
-            : 'Tap to mark as completed or snooze',
+          title,
+          body,
           schedule: { at: scheduleDate },
           actionTypeId: 'VACCINATION_ACTION',
-          extra: {
-            type: 'vaccination',
-            vaccinationId,
-            vaccineName,
-            hospitalName,
-            doctorName,
-          },
-        },
-      ],
-    });
-  } catch (error) {
-    console.error('Failed to schedule vaccination reminder:', error);
+          extra,
+        }],
+      });
+      console.log(`Native vaccination reminder scheduled for ${scheduleDate.toLocaleString()}`);
+    } catch (error) {
+      console.error('Failed to schedule native vaccination reminder:', error);
+    }
+  } else {
+    // Use web notifications
+    scheduleWebNotification(notificationId, title, body, scheduleDate, extra);
   }
 };
 
@@ -110,27 +136,34 @@ export const scheduleVaccinationFollowUp = async (
   const scheduleDate = new Date();
   scheduleDate.setHours(scheduleDate.getHours() + hoursFromNow);
 
-  try {
-    await LocalNotifications.schedule({
-      notifications: [
-        {
+  const title = `Reminder: ${vaccineName}`;
+  const body = 'Vaccination still pending. Have you completed it?';
+  const extra = {
+    type: 'vaccination_followup',
+    vaccinationId,
+    vaccineName,
+    hospitalName,
+    doctorName,
+  };
+
+  if (Capacitor.isNativePlatform()) {
+    try {
+      await LocalNotifications.schedule({
+        notifications: [{
           id: notificationId,
-          title: `Reminder: ${vaccineName}`,
-          body: 'Vaccination still pending. Have you completed it?',
+          title,
+          body,
           schedule: { at: scheduleDate },
           actionTypeId: 'VACCINATION_ACTION',
-          extra: {
-            type: 'vaccination_followup',
-            vaccinationId,
-            vaccineName,
-            hospitalName,
-            doctorName,
-          },
-        },
-      ],
-    });
-  } catch (error) {
-    console.error('Failed to schedule vaccination follow-up:', error);
+          extra,
+        }],
+      });
+      console.log(`Native vaccination follow-up scheduled for ${scheduleDate.toLocaleString()}`);
+    } catch (error) {
+      console.error('Failed to schedule native vaccination follow-up:', error);
+    }
+  } else {
+    scheduleWebNotification(notificationId, title, body, scheduleDate, extra);
   }
 };
 
@@ -151,25 +184,32 @@ export const scheduleMedicineReminder = async (
 
   if (reminderTime <= new Date()) return;
 
-  try {
-    await LocalNotifications.schedule({
-      notifications: [
-        {
+  const title = `Medicine Time: ${medicineName}`;
+  const body = 'Tap to mark as taken or snooze';
+  const extra = {
+    type: 'medicine',
+    scheduleId,
+    medicineName,
+  };
+
+  if (Capacitor.isNativePlatform()) {
+    try {
+      await LocalNotifications.schedule({
+        notifications: [{
           id: notificationId,
-          title: `Medicine Time: ${medicineName}`,
-          body: 'Tap to mark as taken or snooze',
+          title,
+          body,
           schedule: { at: reminderTime },
           actionTypeId: 'MEDICINE_ACTION',
-          extra: {
-            type: 'medicine',
-            scheduleId,
-            medicineName,
-          },
-        },
-      ],
-    });
-  } catch (error) {
-    console.error('Failed to schedule medicine reminder:', error);
+          extra,
+        }],
+      });
+      console.log(`Native medicine reminder scheduled for ${reminderTime.toLocaleString()}`);
+    } catch (error) {
+      console.error('Failed to schedule native medicine reminder:', error);
+    }
+  } else {
+    scheduleWebNotification(notificationId, title, body, reminderTime, extra);
   }
 };
 
@@ -187,25 +227,32 @@ export const scheduleMedicineFollowUp = async (
   const scheduleDate = new Date();
   scheduleDate.setMinutes(scheduleDate.getMinutes() + minutesFromNow);
 
-  try {
-    await LocalNotifications.schedule({
-      notifications: [
-        {
+  const title = `Reminder: ${medicineName}`;
+  const body = 'Medicine intake still pending';
+  const extra = {
+    type: 'medicine_followup',
+    scheduleId,
+    medicineName,
+  };
+
+  if (Capacitor.isNativePlatform()) {
+    try {
+      await LocalNotifications.schedule({
+        notifications: [{
           id: notificationId,
-          title: `Reminder: ${medicineName}`,
-          body: 'Medicine intake still pending',
+          title,
+          body,
           schedule: { at: scheduleDate },
           actionTypeId: 'MEDICINE_ACTION',
-          extra: {
-            type: 'medicine_followup',
-            scheduleId,
-            medicineName,
-          },
-        },
-      ],
-    });
-  } catch (error) {
-    console.error('Failed to schedule medicine follow-up:', error);
+          extra,
+        }],
+      });
+      console.log(`Native medicine follow-up scheduled for ${scheduleDate.toLocaleString()}`);
+    } catch (error) {
+      console.error('Failed to schedule native medicine follow-up:', error);
+    }
+  } else {
+    scheduleWebNotification(notificationId, title, body, scheduleDate, extra);
   }
 };
 
@@ -227,26 +274,33 @@ export const scheduleFeedingReminder = async (
 
   if (reminderTime <= new Date()) return;
 
-  try {
-    await LocalNotifications.schedule({
-      notifications: [
-        {
+  const title = `Feeding Time: ${feedingName}`;
+  const body = 'Tap to mark as done or snooze';
+  const extra = {
+    type: 'feeding',
+    scheduleId,
+    feedingName,
+    profileId,
+  };
+
+  if (Capacitor.isNativePlatform()) {
+    try {
+      await LocalNotifications.schedule({
+        notifications: [{
           id: notificationId,
-          title: `Feeding Time: ${feedingName}`,
-          body: 'Tap to mark as done or snooze',
+          title,
+          body,
           schedule: { at: reminderTime },
           actionTypeId: 'FEEDING_ACTION',
-          extra: {
-            type: 'feeding',
-            scheduleId,
-            feedingName,
-            profileId,
-          },
-        },
-      ],
-    });
-  } catch (error) {
-    console.error('Failed to schedule feeding reminder:', error);
+          extra,
+        }],
+      });
+      console.log(`Native feeding reminder scheduled for ${reminderTime.toLocaleString()}`);
+    } catch (error) {
+      console.error('Failed to schedule native feeding reminder:', error);
+    }
+  } else {
+    scheduleWebNotification(notificationId, title, body, reminderTime, extra);
   }
 };
 
@@ -256,10 +310,14 @@ export const scheduleFeedingReminder = async (
 export const cancelNotification = async (notificationId: number): Promise<void> => {
   if (!isNotificationsSupported()) return;
 
-  try {
-    await LocalNotifications.cancel({ notifications: [{ id: notificationId }] });
-  } catch (error) {
-    console.error('Failed to cancel notification:', error);
+  if (Capacitor.isNativePlatform()) {
+    try {
+      await LocalNotifications.cancel({ notifications: [{ id: notificationId }] });
+    } catch (error) {
+      console.error('Failed to cancel native notification:', error);
+    }
+  } else {
+    cancelWebNotification(notificationId);
   }
 };
 
@@ -277,13 +335,17 @@ export const cancelNotificationByEntityId = async (entityId: string): Promise<vo
 export const cancelAllNotifications = async (): Promise<void> => {
   if (!isNotificationsSupported()) return;
 
-  try {
-    const pending = await LocalNotifications.getPending();
-    if (pending.notifications.length > 0) {
-      await LocalNotifications.cancel({ notifications: pending.notifications });
+  if (Capacitor.isNativePlatform()) {
+    try {
+      const pending = await LocalNotifications.getPending();
+      if (pending.notifications.length > 0) {
+        await LocalNotifications.cancel({ notifications: pending.notifications });
+      }
+    } catch (error) {
+      console.error('Failed to cancel all native notifications:', error);
     }
-  } catch (error) {
-    console.error('Failed to cancel all notifications:', error);
+  } else {
+    cancelAllWebNotifications();
   }
 };
 
@@ -293,36 +355,40 @@ export const cancelAllNotifications = async (): Promise<void> => {
 export const registerNotificationActions = async (): Promise<void> => {
   if (!isNotificationsSupported()) return;
 
-  try {
-    await LocalNotifications.registerActionTypes({
-      types: [
-        {
-          id: 'VACCINATION_ACTION',
-          actions: [
-            { id: 'yes', title: 'Yes, Done' },
-            { id: 'snooze', title: 'Snooze 6h' },
-          ],
-        },
-        {
-          id: 'MEDICINE_ACTION',
-          actions: [
-            { id: 'taken', title: 'Taken' },
-            { id: 'snooze_10', title: 'Snooze 10m' },
-            { id: 'snooze_30', title: 'Snooze 30m' },
-          ],
-        },
-        {
-          id: 'FEEDING_ACTION',
-          actions: [
-            { id: 'done', title: 'Done' },
-            { id: 'snooze', title: 'Snooze 30m' },
-          ],
-        },
-      ],
-    });
-  } catch (error) {
-    console.error('Failed to register notification actions:', error);
+  // Only register action types on native platforms
+  if (Capacitor.isNativePlatform()) {
+    try {
+      await LocalNotifications.registerActionTypes({
+        types: [
+          {
+            id: 'VACCINATION_ACTION',
+            actions: [
+              { id: 'yes', title: 'Yes, Done' },
+              { id: 'snooze', title: 'Snooze 6h' },
+            ],
+          },
+          {
+            id: 'MEDICINE_ACTION',
+            actions: [
+              { id: 'taken', title: 'Taken' },
+              { id: 'snooze_10', title: 'Snooze 10m' },
+              { id: 'snooze_30', title: 'Snooze 30m' },
+            ],
+          },
+          {
+            id: 'FEEDING_ACTION',
+            actions: [
+              { id: 'done', title: 'Done' },
+              { id: 'snooze', title: 'Snooze 30m' },
+            ],
+          },
+        ],
+      });
+    } catch (error) {
+      console.error('Failed to register notification actions:', error);
+    }
   }
+  // Web notifications don't support action types, but the click handler is set up
 };
 
 /**
@@ -333,7 +399,10 @@ export const addNotificationActionListener = (
 ): void => {
   if (!isNotificationsSupported()) return;
 
-  LocalNotifications.addListener('localNotificationActionPerformed', callback);
+  if (Capacitor.isNativePlatform()) {
+    LocalNotifications.addListener('localNotificationActionPerformed', callback);
+  }
+  // Web notification clicks are handled via the 'web-notification-click' custom event
 };
 
 /**
@@ -342,5 +411,9 @@ export const addNotificationActionListener = (
 export const removeAllNotificationListeners = async (): Promise<void> => {
   if (!isNotificationsSupported()) return;
 
-  await LocalNotifications.removeAllListeners();
+  if (Capacitor.isNativePlatform()) {
+    await LocalNotifications.removeAllListeners();
+  }
 };
+
+// checkNotificationPermission is exported from permissionService.ts
