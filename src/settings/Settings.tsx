@@ -46,7 +46,7 @@ import { useProfile } from '@/core/context/ProfileContext';
 import { getStorageFolderPath, clearStorageFolderConfig, createChitraFolder } from '@/core/storage/folderService';
 import { checkNotificationPermission, requestNotificationPermission } from '@/core/notifications/permissionService';
 import { showWebNotification, isWebNotificationsSupported } from '@/core/notifications/webNotificationService';
-import { isNotificationsSupported, scheduleMedicineReminder } from '@/core/notifications/notificationService';
+import { isNotificationsSupported, sendTestNotification, isNativePlatform as isNativeNotificationPlatform } from '@/core/notifications/notificationService';
 import type { UserPreferences, ThemeMode, ColorTheme, CountryCode, LanguageCode, ExportFormat, ProfileMode } from '@/core/types';
 import type { ExportDataTypeExtended } from '@/core/export/mobileExport';
 import { updateProfile } from '@/core/storage/profileService';
@@ -698,26 +698,16 @@ const Settings = () => {
           {notificationPermissionGranted && (
             <button
               onClick={async () => {
-                // Schedule a test notification in 5 seconds
-                const testTime = new Date();
-                testTime.setSeconds(testTime.getSeconds() + 5);
-                
-                // Try to show immediate notification for testing
-                if (isWebNotificationsSupported() && !Capacitor.isNativePlatform()) {
-                  showWebNotification(
-                    'Test Notification',
-                    'Notifications are working! This is a test.',
-                    { type: 'test' }
-                  );
-                } else {
-                  await scheduleMedicineReminder('test-' + Date.now(), 'Test Medicine', testTime);
-                }
+                // Use the new comprehensive test function
+                const success = await sendTestNotification();
                 
                 toast({
-                  title: 'Test Notification Sent',
-                  description: Capacitor.isNativePlatform() 
-                    ? 'Check your notification panel in 5 seconds.' 
-                    : 'A browser notification should appear now.',
+                  title: success ? 'Test Notification Sent' : 'Notification Failed',
+                  description: success 
+                    ? (isNativeNotificationPlatform() 
+                        ? 'Check your notification panel in 3 seconds.' 
+                        : 'A browser notification should appear now.')
+                    : 'Could not send test notification. Check console for details.',
                 });
               }}
               className="flex items-center justify-between p-4 w-full text-left hover:bg-secondary/50 transition-colors"
