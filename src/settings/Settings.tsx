@@ -45,6 +45,8 @@ import { importFromJSON, importFromCSV } from '@/core/export';
 import { useProfile } from '@/core/context/ProfileContext';
 import { getStorageFolderPath, clearStorageFolderConfig, createChitraFolder } from '@/core/storage/folderService';
 import { checkNotificationPermission, requestNotificationPermission } from '@/core/notifications/permissionService';
+import { showWebNotification, isWebNotificationsSupported } from '@/core/notifications/webNotificationService';
+import { isNotificationsSupported, scheduleMedicineReminder } from '@/core/notifications/notificationService';
 import type { UserPreferences, ThemeMode, ColorTheme, CountryCode, LanguageCode, ExportFormat, ProfileMode } from '@/core/types';
 import type { ExportDataTypeExtended } from '@/core/export/mobileExport';
 import { updateProfile } from '@/core/storage/profileService';
@@ -691,6 +693,47 @@ const Settings = () => {
               }}
             />
           </div>
+
+          {/* Test Notification */}
+          {notificationPermissionGranted && (
+            <button
+              onClick={async () => {
+                // Schedule a test notification in 5 seconds
+                const testTime = new Date();
+                testTime.setSeconds(testTime.getSeconds() + 5);
+                
+                // Try to show immediate notification for testing
+                if (isWebNotificationsSupported() && !Capacitor.isNativePlatform()) {
+                  showWebNotification(
+                    'Test Notification',
+                    'Notifications are working! This is a test.',
+                    { type: 'test' }
+                  );
+                } else {
+                  await scheduleMedicineReminder('test-' + Date.now(), 'Test Medicine', testTime);
+                }
+                
+                toast({
+                  title: 'Test Notification Sent',
+                  description: Capacitor.isNativePlatform() 
+                    ? 'Check your notification panel in 5 seconds.' 
+                    : 'A browser notification should appear now.',
+                });
+              }}
+              className="flex items-center justify-between p-4 w-full text-left hover:bg-secondary/50 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                  <Bell className="w-5 h-5 text-primary" />
+                </div>
+                <div>
+                  <p className="font-medium text-foreground">Test Notification</p>
+                  <p className="text-sm text-muted-foreground">Send a test notification</p>
+                </div>
+              </div>
+              <ChevronRight className="w-5 h-5 text-muted-foreground" />
+            </button>
+          )}
         </Card>
       </motion.div>
 

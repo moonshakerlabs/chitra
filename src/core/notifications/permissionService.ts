@@ -1,5 +1,10 @@
 import { Capacitor } from '@capacitor/core';
 import { LocalNotifications } from '@capacitor/local-notifications';
+import { 
+  isWebNotificationsSupported, 
+  requestWebNotificationPermission,
+  getWebNotificationPermission,
+} from './webNotificationService';
 
 export interface NotificationPermissionStatus {
   granted: boolean;
@@ -10,50 +15,43 @@ export interface NotificationPermissionStatus {
  * Check the current notification permission status
  */
 export const checkNotificationPermission = async (): Promise<NotificationPermissionStatus> => {
-  if (!Capacitor.isNativePlatform()) {
-    // Web - check browser Notification API
-    if ('Notification' in window) {
-      const permission = Notification.permission;
+  if (Capacitor.isNativePlatform()) {
+    try {
+      const result = await LocalNotifications.checkPermissions();
       return {
-        granted: permission === 'granted',
-        deniedPermanently: permission === 'denied',
+        granted: result.display === 'granted',
+        deniedPermanently: result.display === 'denied',
       };
+    } catch (error) {
+      console.error('Error checking native notification permissions:', error);
+      return { granted: false, deniedPermanently: false };
     }
-    return { granted: false, deniedPermanently: false };
-  }
-
-  try {
-    const result = await LocalNotifications.checkPermissions();
+  } else if (isWebNotificationsSupported()) {
+    const permission = getWebNotificationPermission();
     return {
-      granted: result.display === 'granted',
-      deniedPermanently: result.display === 'denied',
+      granted: permission === 'granted',
+      deniedPermanently: permission === 'denied',
     };
-  } catch (error) {
-    console.error('Error checking notification permissions:', error);
-    return { granted: false, deniedPermanently: false };
   }
+  return { granted: false, deniedPermanently: false };
 };
 
 /**
  * Request notification permission
  */
 export const requestNotificationPermission = async (): Promise<boolean> => {
-  if (!Capacitor.isNativePlatform()) {
-    // Web - use browser Notification API
-    if ('Notification' in window) {
-      const result = await Notification.requestPermission();
-      return result === 'granted';
+  if (Capacitor.isNativePlatform()) {
+    try {
+      const result = await LocalNotifications.requestPermissions();
+      return result.display === 'granted';
+    } catch (error) {
+      console.error('Error requesting native notification permissions:', error);
+      return false;
     }
-    return false;
+  } else if (isWebNotificationsSupported()) {
+    return await requestWebNotificationPermission();
   }
-
-  try {
-    const result = await LocalNotifications.requestPermissions();
-    return result.display === 'granted';
-  } catch (error) {
-    console.error('Error requesting notification permissions:', error);
-    return false;
-  }
+  return false;
 };
 
 /**
