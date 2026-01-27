@@ -212,14 +212,33 @@ export const scheduleMedicineReminder = async (
   medicineName: string,
   reminderTime: Date
 ): Promise<void> => {
-  if (!isNotificationsSupported()) return;
+  console.log(`[Notifications] scheduleMedicineReminder called for ${medicineName}`);
+  console.log(`[Notifications] Requested time: ${reminderTime.toLocaleString()}`);
+  console.log(`[Notifications] Current time: ${new Date().toLocaleString()}`);
+  console.log(`[Notifications] Platform: ${Capacitor.getPlatform()}, Native: ${isNativePlatform()}`);
+  
+  if (!isNotificationsSupported()) {
+    console.log('[Notifications] Notifications not supported');
+    return;
+  }
 
   const prefs = await getPreferences();
-  if (!prefs.medicineRemindersEnabled) return;
+  console.log('[Notifications] Medicine reminders enabled:', prefs.medicineRemindersEnabled);
+  if (!prefs.medicineRemindersEnabled) {
+    console.log('[Notifications] Medicine reminders disabled in preferences');
+    return;
+  }
 
-  const notificationId = generateNotificationId(scheduleId + reminderTime.toISOString());
+  // For immediate notifications, ensure the time is at least 2 seconds in the future
+  let scheduledTime = reminderTime;
+  const now = new Date();
+  if (scheduledTime.getTime() <= now.getTime() + 1000) {
+    scheduledTime = new Date(now.getTime() + 2000); // 2 seconds from now
+    console.log(`[Notifications] Adjusted time to: ${scheduledTime.toLocaleString()}`);
+  }
 
-  if (reminderTime <= new Date()) return;
+  const notificationId = generateNotificationId(scheduleId + scheduledTime.toISOString());
+  console.log(`[Notifications] Notification ID: ${notificationId}`);
 
   const title = `Medicine Time: ${medicineName}`;
   const body = 'Tap to mark as taken or snooze';
@@ -231,13 +250,27 @@ export const scheduleMedicineReminder = async (
 
   if (isNativePlatform()) {
     try {
+      // Check permission first
+      const permStatus = await LocalNotifications.checkPermissions();
+      console.log('[Notifications] Permission status:', permStatus.display);
+      
+      if (permStatus.display !== 'granted') {
+        console.log('[Notifications] Requesting permission...');
+        const result = await LocalNotifications.requestPermissions();
+        if (result.display !== 'granted') {
+          console.log('[Notifications] Permission denied, trying web fallback');
+          scheduleWebNotification(notificationId, title, body, scheduledTime, extra);
+          return;
+        }
+      }
+      
       await LocalNotifications.schedule({
         notifications: [{
           id: notificationId,
           title,
           body,
           schedule: { 
-            at: reminderTime,
+            at: scheduledTime,
             allowWhileIdle: true,
           },
           actionTypeId: 'MEDICINE_ACTION',
@@ -246,13 +279,19 @@ export const scheduleMedicineReminder = async (
           iconColor: '#E91E63',
         }],
       });
-      console.log(`[Notifications] Native medicine reminder scheduled for ${reminderTime.toLocaleString()}`);
+      
+      // Verify it was scheduled
+      const pending = await LocalNotifications.getPending();
+      console.log(`[Notifications] Medicine reminder scheduled. Total pending: ${pending.notifications.length}`);
+      console.log(`[Notifications] Pending IDs:`, pending.notifications.map(n => n.id));
+      
     } catch (error) {
       console.error('[Notifications] Failed to schedule native medicine reminder:', error);
-      scheduleWebNotification(notificationId, title, body, reminderTime, extra);
+      scheduleWebNotification(notificationId, title, body, scheduledTime, extra);
     }
   } else {
-    scheduleWebNotification(notificationId, title, body, reminderTime, extra);
+    console.log('[Notifications] Using web notification fallback');
+    scheduleWebNotification(notificationId, title, body, scheduledTime, extra);
   }
 };
 
@@ -314,14 +353,27 @@ export const scheduleFeedingReminder = async (
   profileId: string,
   reminderTime: Date
 ): Promise<void> => {
-  if (!isNotificationsSupported()) return;
+  console.log(`[Notifications] scheduleFeedingReminder called for ${feedingName}`);
+  console.log(`[Notifications] Requested time: ${reminderTime.toLocaleString()}`);
+  
+  if (!isNotificationsSupported()) {
+    console.log('[Notifications] Notifications not supported');
+    return;
+  }
 
   const prefs = await getPreferences();
+  console.log('[Notifications] Feeding reminders enabled:', prefs.feedingRemindersEnabled);
   if (!prefs.feedingRemindersEnabled) return;
 
-  const notificationId = generateNotificationId(scheduleId + reminderTime.toISOString());
+  // For immediate notifications, ensure the time is at least 2 seconds in the future
+  let scheduledTime = reminderTime;
+  const now = new Date();
+  if (scheduledTime.getTime() <= now.getTime() + 1000) {
+    scheduledTime = new Date(now.getTime() + 2000);
+    console.log(`[Notifications] Adjusted time to: ${scheduledTime.toLocaleString()}`);
+  }
 
-  if (reminderTime <= new Date()) return;
+  const notificationId = generateNotificationId(scheduleId + scheduledTime.toISOString());
 
   const title = `Feeding Time: ${feedingName}`;
   const body = 'Tap to mark as done or snooze';
@@ -334,13 +386,22 @@ export const scheduleFeedingReminder = async (
 
   if (isNativePlatform()) {
     try {
+      const permStatus = await LocalNotifications.checkPermissions();
+      if (permStatus.display !== 'granted') {
+        const result = await LocalNotifications.requestPermissions();
+        if (result.display !== 'granted') {
+          scheduleWebNotification(notificationId, title, body, scheduledTime, extra);
+          return;
+        }
+      }
+      
       await LocalNotifications.schedule({
         notifications: [{
           id: notificationId,
           title,
           body,
           schedule: { 
-            at: reminderTime,
+            at: scheduledTime,
             allowWhileIdle: true,
           },
           actionTypeId: 'FEEDING_ACTION',
@@ -349,13 +410,16 @@ export const scheduleFeedingReminder = async (
           iconColor: '#E91E63',
         }],
       });
-      console.log(`[Notifications] Native feeding reminder scheduled for ${reminderTime.toLocaleString()}`);
+      
+      const pending = await LocalNotifications.getPending();
+      console.log(`[Notifications] Feeding reminder scheduled. Total pending: ${pending.notifications.length}`);
+      
     } catch (error) {
       console.error('[Notifications] Failed to schedule native feeding reminder:', error);
-      scheduleWebNotification(notificationId, title, body, reminderTime, extra);
+      scheduleWebNotification(notificationId, title, body, scheduledTime, extra);
     }
   } else {
-    scheduleWebNotification(notificationId, title, body, reminderTime, extra);
+    scheduleWebNotification(notificationId, title, body, scheduledTime, extra);
   }
 };
 
