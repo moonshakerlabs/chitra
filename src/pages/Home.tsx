@@ -16,8 +16,9 @@ import ProfileEditModal from '@/profiles/ProfileEditModal';
 import { useToast } from '@/hooks/use-toast';
 import { differenceInYears } from 'date-fns';
 import type { Profile } from '@/core/types';
-import { useScreenTime } from '@/modules/screentime';
+import { useScreenTime, useScreenTimeTracking } from '@/modules/screentime';
 import { formatScreenTime, getCurrentWeekInfo } from '@/modules/screentime/screenTimeService';
+import { formatDynamicScreenTime } from '@/modules/screentime/screenTimeSessionService';
 
 const Home = () => {
   const navigate = useNavigate();
@@ -30,6 +31,7 @@ const Home = () => {
   const [editingProfile, setEditingProfile] = useState<Profile | undefined>(undefined);
   const { toast } = useToast();
   const { currentWeekEntry } = useScreenTime();
+  const { isTracking, elapsedSeconds, aggregates, startTracking, stopTracking } = useScreenTimeTracking();
   const { weekNumber: currentWeek } = getCurrentWeekInfo();
 
   // Check if this is the primary/main profile
@@ -474,26 +476,47 @@ const Home = () => {
           transition={{ delay: 0.35 }}
         >
           <Card 
-            className="cursor-pointer hover:shadow-md transition-shadow"
+            className={`cursor-pointer hover:shadow-md transition-shadow ${isTracking ? 'border-primary border-2' : ''}`}
             onClick={() => navigate('/screentime')}
           >
             <CardContent className="p-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-secondary flex items-center justify-center">
-                    <Smartphone className="w-5 h-5 text-primary" />
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isTracking ? 'bg-primary' : 'bg-secondary'}`}>
+                    <Smartphone className={`w-5 h-5 ${isTracking ? 'text-primary-foreground' : 'text-primary'}`} />
                   </div>
                   <div>
-                    <p className="text-sm text-muted-foreground">Screen Time (Week {currentWeek})</p>
-                    {currentWeekEntry ? (
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm text-muted-foreground">
+                        {isTracking ? 'Tracking Active' : 'Screen Time Today'}
+                      </p>
+                      {isTracking && (
+                        <div className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+                      )}
+                    </div>
+                    {isTracking ? (
+                      <p className="text-xl font-bold text-foreground font-mono">
+                        {formatDynamicScreenTime(elapsedSeconds)}
+                      </p>
+                    ) : aggregates && aggregates.daily > 0 ? (
                       <p className="text-xl font-bold text-foreground">
-                        {formatScreenTime(currentWeekEntry.totalMinutes)}
+                        {formatDynamicScreenTime(aggregates.daily)}
                       </p>
                     ) : (
-                      <p className="text-lg font-semibold text-foreground">Not logged</p>
+                      <p className="text-lg font-semibold text-foreground">Tap to track</p>
                     )}
                   </div>
                 </div>
+                <Button
+                  size="sm"
+                  variant={isTracking ? 'destructive' : 'default'}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    isTracking ? stopTracking() : startTracking();
+                  }}
+                >
+                  {isTracking ? 'Stop' : 'Start'}
+                </Button>
               </div>
             </CardContent>
           </Card>

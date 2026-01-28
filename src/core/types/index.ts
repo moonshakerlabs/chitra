@@ -240,6 +240,20 @@ export interface PaymentInfo {
 }
 
 // ============ Screen Time Types ============
+
+// Session-based screen time tracking
+export interface ScreenTimeSession {
+  id: string;
+  profileId: string;
+  startTime: string; // ISO datetime when tracking started
+  endTime?: string; // ISO datetime when tracking stopped
+  durationSeconds: number; // Total seconds for this session
+  date: string; // ISO date (YYYY-MM-DD) for daily aggregation
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Legacy weekly entry (kept for backwards compatibility)
 export interface ScreenTimeEntry {
   id: string;
   profileId: string;
@@ -251,6 +265,13 @@ export interface ScreenTimeEntry {
   notes?: string;
   createdAt: string;
   updatedAt: string;
+}
+
+// Tracking state stored in preferences
+export interface ScreenTimeTrackingState {
+  isTracking: boolean;
+  activeSessionId?: string;
+  trackingStartTime?: string; // ISO datetime
 }
 
 // ============ Export/Import Types ============
